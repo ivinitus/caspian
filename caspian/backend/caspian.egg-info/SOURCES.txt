@@ -1,0 +1,6 @@
+setup.py
+caspian.egg-info/PKG-INFO
+caspian.egg-info/SOURCES.txt
+caspian.egg-info/dependency_links.txt
+caspian.egg-info/requires.txt
+caspian.egg-info/top_level.txt
