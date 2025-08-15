@@ -14,13 +14,12 @@ class CaspianBot(discord.Client):
         if isinstance(message.channel, discord.DMChannel):
             await message.channel.typing()
             # Lazy import to avoid circulars
-            from app.core.llm import ask_openai
+            from app.core.llm import ask_gemini
 
-            response = await ask_openai([
+            text = await ask_gemini([
                 {"role": "user", "content": message.content}
             ])
-            reply = response['choices'][0]['message']['content']
-            await message.channel.send(f"Sir, {reply}")
+            await message.channel.send(f"Sir, {text}")
 
 
 def run_bot():

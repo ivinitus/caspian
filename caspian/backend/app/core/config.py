@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     sqlalchemy_echo: bool = False
 
     # Integrations
-    openai_api_key: str | None = None
+    gemini_api_key: str | None = None
     discord_token: str | None = None
 
     # Security / Auth
