@@ -14,5 +14,6 @@ setup(
         "discord.py",
         "httpx",
         "pydantic",
+        "pydantic-settings",
     ],
 )

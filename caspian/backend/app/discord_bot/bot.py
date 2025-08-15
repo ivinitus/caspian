@@ -1,13 +1,8 @@
 
-import os
 import discord
-import asyncio
-from app.core.llm import ask_openai
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.core.config import settings
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 class CaspianBot(discord.Client):
     async def on_ready(self):
@@ -18,13 +13,22 @@ class CaspianBot(discord.Client):
             return
         if isinstance(message.channel, discord.DMChannel):
             await message.channel.typing()
+            # Lazy import to avoid circulars
+            from app.core.llm import ask_openai
+
             response = await ask_openai([
                 {"role": "user", "content": message.content}
             ])
             reply = response['choices'][0]['message']['content']
             await message.channel.send(f"Sir, {reply}")
 
+
 def run_bot():
+    token = settings.discord_token
+    if not token:
+        print("DISCORD_TOKEN not set; Discord bot will not start.")
+        return
+
     intents = discord.Intents.default()
     client = CaspianBot(intents=intents)
-    client.run(DISCORD_TOKEN)
+    client.run(token)
