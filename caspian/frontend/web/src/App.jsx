@@ -30,6 +30,7 @@ export default function App() {
       });
       const data = await res.json();
       const reply =
+        data.text ||
         data.reply ||
         data.choices?.[0]?.message?.content ||
         "Sorry Sir, I could not process that.";

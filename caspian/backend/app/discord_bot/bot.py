@@ -29,5 +29,6 @@ def run_bot():
         return
 
     intents = discord.Intents.default()
+    intents.message_content = True
     client = CaspianBot(intents=intents)
     client.run(token)
