@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import JSON
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
@@ -26,6 +27,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    preferences: Mapped[dict] = mapped_column(JSON, default=dict)
 
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
 

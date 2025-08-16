@@ -19,8 +19,13 @@ class Settings(BaseSettings):
     )
     sqlalchemy_echo: bool = False
 
+    # LLM Provider selection: 'gemini' | 'openai' | 'anthropic'
+    llm_provider: str = "gemini"
+
     # Integrations
     gemini_api_key: str | None = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
     discord_token: str | None = None
 
     # Security / Auth
