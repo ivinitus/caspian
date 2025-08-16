@@ -19,6 +19,24 @@ def _normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
     return [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages]
 
 
+def _sanitize_model(provider: str, model: str | None) -> str:
+    default_model = DEFAULT_MODELS.get(provider, DEFAULT_MODELS["gemini"])
+    if not model:
+        return default_model
+    cleaned = model.strip()
+    # Ignore common placeholder strings from docs/forms
+    if cleaned.lower() in {"string", "model", "your-model", "example"}:
+        return default_model
+    # Basic provider-specific guards
+    if provider == "gemini" and not cleaned.startswith("gemini-"):
+        return default_model
+    if provider == "openai" and not (cleaned.startswith("gpt-") or cleaned.startswith("o")):
+        return default_model
+    if provider == "anthropic" and not cleaned.startswith("claude"):
+        return default_model
+    return cleaned
+
+
 async def _ask_gemini(messages: list[dict[str, Any]], model: str) -> str:
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not set")
@@ -69,14 +87,12 @@ async def _ask_anthropic(messages: list[dict[str, Any]], model: str) -> str:
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set")
 
-    # Anthropic Messages API
     url = f"{ANTHROPIC_API_BASE}/messages"
     headers = {
         "x-api-key": settings.anthropic_api_key,
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
-    # Convert to anthropic content format
     content = [
         {
             "role": "user" if m["role"] == "user" else "assistant",
@@ -97,7 +113,7 @@ async def _ask_anthropic(messages: list[dict[str, Any]], model: str) -> str:
 
 async def ask_llm(messages: list[dict[str, Any]], model: str | None = None) -> str:
     provider = settings.llm_provider.lower()
-    model_to_use = model or DEFAULT_MODELS.get(provider, DEFAULT_MODELS["gemini"])
+    model_to_use = _sanitize_model(provider, model)
 
     if provider == "gemini":
         return await _ask_gemini(messages, model_to_use)
