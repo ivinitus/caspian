@@ -21,6 +21,9 @@ class LLMRequest(BaseModel):
 async def chat_with_llm(req: LLMRequest):
     try:
         text = await ask_llm([m.dict() for m in req.messages], model=req.model)
-        return {"text": text}
+        reply = text.strip()
+        if not reply.lower().startswith("sir"):
+            reply = f"Sir, {reply}"
+        return {"text": reply}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from None
