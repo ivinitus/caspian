@@ -10,6 +10,8 @@ export default function App() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  // Simple counter to satisfy Vite + React requirement
+  const [count, setCount] = useState(0);
 
   useEffect(() => {
     // Use default personal user seeded on backend
@@ -76,6 +78,10 @@ export default function App() {
   return (
     <div style={{ maxWidth: 600, margin: "40px auto", fontFamily: "sans-serif" }}>
       <h2>Caspian AI Assistant</h2>
+      {/* Simple counter */}
+      <button onClick={() => setCount(c => c + 1)} style={{ marginBottom: 12 }}>
+        count is {count}
+      </button>
       {!conversationId && <div>Initializing conversation…</div>}
       <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16, minHeight: 300, background: "#fafbfc" }}>
         {messages.map((m, i) => (
