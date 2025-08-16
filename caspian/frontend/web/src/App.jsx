@@ -21,10 +21,13 @@ export default function App() {
 
   useEffect(() => {
     if (!user || conversationId) return;
-    // Start a conversation for the user
+    // Start a conversation for the user by username for robustness
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/conversations/?user_id=1`, { method: "POST" });
+        const res = await fetch(`${API_URL}/conversations/`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: user.username })
+        });
         const data = await res.json();
         setConversationId(data.id);
       } catch (e) {

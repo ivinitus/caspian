@@ -14,7 +14,10 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/conversations/?user_id=1`, { method: 'POST' });
+        const res = await fetch(`${API_URL}/conversations/`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'sir' })
+        });
         const data = await res.json();
         setConversationId(data.id);
       } catch (e) {}
