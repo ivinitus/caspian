@@ -1,31 +1,50 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, View, ActivityIndicator } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function App() {
+  const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hello Sir, I am Caspian. How may I assist you today?' },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/conversations/?user_id=1`, { method: 'POST' });
+        const data = await res.json();
+        setConversationId(data.id);
+      } catch (e) {}
+    })();
+  }, []);
+
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !conversationId) return;
     const userMsg = { role: 'user', content: input };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
     try {
+      await fetch(`${API_URL}/conversations/${conversationId}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: userMsg.content, sender: userMsg.role }),
+      });
       const res = await fetch(`${API_URL}/llm/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json();
       const reply = data.text || data.reply || 'Sorry Sir, I could not process that.';
-      setMessages([...newMessages, { role: 'assistant', content: reply }]);
+      const assistantMsg = { role: 'assistant', content: reply };
+      setMessages([...newMessages, assistantMsg]);
+      await fetch(`${API_URL}/conversations/${conversationId}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: assistantMsg.content, sender: assistantMsg.role }),
+      });
     } catch (e) {
       setMessages([...newMessages, { role: 'assistant', content: 'Sorry Sir, there was an error.' }]);
     }
@@ -41,6 +60,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Caspian AI Assistant</Text>
+      {!conversationId && <Text style={{ paddingHorizontal: 16 }}>Initializing conversation…</Text>}
       <FlatList
         data={messages}
         renderItem={renderItem}
@@ -54,9 +74,9 @@ export default function App() {
           value={input}
           onChangeText={setInput}
           placeholder="Type your message, Sir…"
-          editable={!loading}
+          editable={!loading && !!conversationId}
         />
-        <TouchableOpacity style={styles.button} onPress={sendMessage} disabled={loading || !input.trim()}>
+        <TouchableOpacity style={styles.button} onPress={sendMessage} disabled={loading || !input.trim() || !conversationId}>
           <Text style={styles.buttonText}>Send</Text>
         </TouchableOpacity>
       </View>
@@ -65,58 +85,15 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    padding: 16,
-  },
-  list: {
-    padding: 16,
-  },
-  bubble: {
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    maxWidth: '85%',
-  },
-  bubbleUser: {
-    backgroundColor: '#d1e7ff',
-    alignSelf: 'flex-end',
-  },
-  bubbleAssistant: {
-    backgroundColor: '#f0f0f0',
-    alignSelf: 'flex-start',
-  },
-  bubbleText: {
-    fontSize: 16,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  button: {
-    marginLeft: 8,
-    backgroundColor: '#0d6efd',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  title: { fontSize: 24, fontWeight: 'bold', padding: 16 },
+  list: { padding: 16 },
+  bubble: { padding: 12, borderRadius: 12, marginBottom: 8, maxWidth: '85%' },
+  bubbleUser: { backgroundColor: '#d1e7ff', alignSelf: 'flex-end' },
+  bubbleAssistant: { backgroundColor: '#f0f0f0', alignSelf: 'flex-start' },
+  bubbleText: { fontSize: 16 },
+  inputRow: { flexDirection: 'row', padding: 12, borderTopWidth: 1, borderTopColor: '#eee' },
+  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 12, height: 44 },
+  button: { marginLeft: 8, backgroundColor: '#0d6efd', borderRadius: 8, paddingHorizontal: 16, justifyContent: 'center' },
+  buttonText: { color: '#fff', fontWeight: '600' },
 });

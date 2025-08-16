@@ -8,7 +8,10 @@ from app.api.plugins import router as plugins_router
 from app.api.preferences import router as preferences_router
 from app.api.ws import router as ws_router
 from app.core.config import settings
+from app.db.models import SessionLocal, User
 from app.discord_bot.runner import start_discord_bot
+from passlib.context import CryptContext
+from sqlalchemy import select
 
 app = FastAPI(title=settings.app_name)
 
@@ -31,6 +34,16 @@ app.include_router(ws_router)
 
 @app.on_event("startup")
 async def startup_event():
+    # Optionally seed a default user for personal use
+    if settings.create_default_user_on_startup:
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        async with SessionLocal() as db:
+            result = await db.execute(select(User).where(User.username == settings.default_username))
+            user = result.scalar_one_or_none()
+            if not user:
+                hashed_pw = pwd_context.hash(settings.default_user_password)
+                db.add(User(username=settings.default_username, hashed_password=hashed_pw))
+                await db.commit()
     start_discord_bot()
 
 

@@ -1,6 +1,5 @@
 from pydantic import Field
-from pydantic_settings import BaseSettings
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -27,6 +26,11 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
     discord_token: str | None = None
+
+    # Default personal user
+    default_username: str = "sir"
+    default_user_password: str = "change-me"
+    create_default_user_on_startup: bool = True
 
     # Security / Auth
     secret_key: str = "change-me"
