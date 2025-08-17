@@ -25,18 +25,14 @@ async def check_reminders_periodically():
                             user_result = await db.execute(select(User).where(User.id == reminder.user_id))
                             user = user_result.scalar_one_or_none()
                             if user and user.discord_id:
-                                discord_user = await DISCORD_BOT_INSTANCE.fetch_user(user.discord_id)
+                                discord_user = await DISCORD_BOT_INSTANCE.fetch_user(int(user.discord_id))
                                 if discord_user:
                                     await discord_user.send(f"Sir, a reminder for you: {reminder.content}")
                                     reminder.is_sent = True
                                     await db.commit()
                                     print(f"Sent reminder {reminder.id} to user {reminder.user_id}")
-                            else:
-                                print(f"User or discord_id not found for reminder {reminder.id}")
-                                reminder.is_sent = True # Mark as sent to avoid retries
-                                await db.commit()
-                        except discord.NotFound:
-                            print(f"Could not find Discord user with ID: {user.discord_id} for reminder {reminder.id}")
+                        except (discord.NotFound, discord.Forbidden):
+                            print(f"Could not send reminder {reminder.id} to user {user.discord_id}. User not found or DMs disabled.")
                             reminder.is_sent = True
                             await db.commit()
                         except Exception as e:
