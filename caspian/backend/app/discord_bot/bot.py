@@ -2,8 +2,12 @@ import asyncio
 import discord
 from sqlalchemy import select
 from app.core.config import settings
-from app.db.models import SessionLocal, User, Conversation, Message
+from app.db.models import SessionLocal, User, Conversation, Message, Reminder
 from app.rag import get_similar_documents
+from datetime import datetime
+import json
+from app.api.auth import get_password_hash
+import secrets
 
 class CaspianBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -22,30 +26,86 @@ class CaspianBot(discord.Client):
         if isinstance(message.channel, discord.DMChannel):
             try:
                 await message.channel.typing()
-                future = asyncio.run_coroutine_threadsafe(
-                    self._process_and_get_reply(message), self.main_loop
-                )
-                final_reply = await asyncio.wrap_future(future)
-                if final_reply:
-                    await message.channel.send(final_reply)
+                if message.content.startswith('!remind'):
+                    future = asyncio.run_coroutine_threadsafe(
+                        self._handle_reminder_command(message), self.main_loop
+                    )
+                    reply = await asyncio.wrap_future(future)
+                else:
+                    future = asyncio.run_coroutine_threadsafe(
+                        self._process_and_get_reply(message), self.main_loop
+                    )
+                    reply = await asyncio.wrap_future(future)
+
+                if reply:
+                    await message.channel.send(reply)
             except Exception as e:
                 print(f"!!! ERROR during bot orchestration: {e} !!!")
                 await message.channel.send("My apologies, Sir. A critical error occurred.")
+
+    async def _handle_reminder_command(self, message) -> str:
+        from app.core.llm import ask_llm
+        try:
+            now_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            prompt = f"""
+            Given the user's reminder request and the current UTC time, extract the reminder content and the exact time for the reminder.
+            The current time is: {now_utc} UTC.
+            User request: "{message.content}"
+            Please return a JSON object with two keys: "remind_at" (in YYYY-MM-DD HH:MM:SS format, UTC) and "content".
+            """
+            messages_for_llm = [{"role": "user", "content": prompt}]
+            response_text = await ask_llm(messages_for_llm)
+            
+            json_response_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
+            reminder_data = json.loads(json_response_str)
+
+            remind_at_str = reminder_data.get("remind_at")
+            content = reminder_data.get("content")
+
+            if not remind_at_str or not content:
+                return "I'm sorry, Sir, I could not understand the reminder. Please try again."
+                
+            remind_at = datetime.strptime(remind_at_str, '%Y-%m-%d %H:%M:%S')
+
+            async with SessionLocal() as db:
+                user_result = await db.execute(select(User).where(User.discord_id == str(message.author.id)))
+                user = user_result.scalar_one_or_none()
+                if not user:
+                    dummy_password = secrets.token_hex(16)
+                    hashed_pw = get_password_hash(dummy_password)
+                    user = User(username=message.author.name, discord_id=str(message.author.id), hashed_password=hashed_pw)
+                    db.add(user)
+                    await db.commit()
+                    await db.refresh(user)
+
+                new_reminder = Reminder(
+                    user_id=user.id,
+                    content=content,
+                    remind_at=remind_at,
+                )
+                db.add(new_reminder)
+                await db.commit()
+            
+            return f"Very good, Sir. I will remind you about '{content}' at {remind_at_str} UTC."
+
+        except Exception as e:
+            print(f"!!! ERROR in reminder handling: {e} !!!")
+            return "I'm sorry, Sir, I encountered an error while setting your reminder."
+
 
     async def _process_and_get_reply(self, message) -> str | None:
         from app.core.llm import ask_llm
         try:
             async with SessionLocal() as db:
-                user_result = await db.execute(select(User).where(User.username == "sir"))
+                user_result = await db.execute(select(User).where(User.discord_id == str(message.author.id)))
                 user = user_result.scalar_one_or_none()
                 if not user:
-                    print("CRITICAL: Default user 'sir' not found.")
-                    return "Apologies, Sir. I am experiencing a critical system error."
-
-                if not user.discord_id:
-                    user.discord_id = str(message.author.id)
+                    dummy_password = secrets.token_hex(16)
+                    hashed_pw = get_password_hash(dummy_password)
+                    user = User(username=message.author.name, discord_id=str(message.author.id), hashed_password=hashed_pw)
+                    db.add(user)
                     await db.commit()
-                    print(f"Associated Discord ID {message.author.id} with user 'sir'.")
+                    await db.refresh(user)
 
                 stmt = (
                     select(Conversation)
