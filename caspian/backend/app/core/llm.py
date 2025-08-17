@@ -37,7 +37,7 @@ def _sanitize_model(provider: str, model: str | None) -> str:
     return cleaned
 
 
-async def _ask_gemini(messages: list[dict[str, Any]], model: str) -> str:
+async def ask_gemini(messages: list[dict[str, Any]], model: str) -> str:
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not set")
 
@@ -116,7 +116,7 @@ async def ask_llm(messages: list[dict[str, Any]], model: str | None = None) -> s
     model_to_use = _sanitize_model(provider, model)
 
     if provider == "gemini":
-        return await _ask_gemini(messages, model_to_use)
+        return await ask_gemini(messages, model_to_use)
     if provider == "openai":
         return await _ask_openai(messages, model_to_use)
     if provider == "anthropic":
