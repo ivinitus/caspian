@@ -4,11 +4,11 @@ python-dotenv
 sqlalchemy[asyncio]
 asyncpg
 passlib[bcrypt]
+bcrypt==3.2.2
 python-jose[cryptography]
 discord.py
 httpx
 pydantic
 pydantic-settings
 pgvector
-python-multipart
-sentence_transformers
+sentence-transformers

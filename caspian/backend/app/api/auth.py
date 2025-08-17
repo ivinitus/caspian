@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.db.models import SessionLocal
 from app.db.models import User
 from pydantic import ConfigDict
+from sqlalchemy import select
 
 # FastAPI router setup
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -89,10 +90,10 @@ async def register_user(user: UserCreate = Body(...)):
 # Authentication utilities
 async def get_user(db, username: str) -> User | None:
     """Retrieve a user by username from the database."""
-    result = await db.execute(
-        User.__table__.select().where(User.username == username)
-    )
+    # This is the corrected query
+    result = await db.execute(select(User).where(User.username == username))
     return result.scalar_one_or_none()
+
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -138,5 +139,21 @@ async def login_for_access_token(
             )
 
         # Generate token
+        access_token = create_access_token(data={"sub": user.username})
+        return Token(access_token=access_token, token_type="bearer")
+    
+
+@router.post("/token/from-username")
+async def get_token_from_username(username_data: dict):
+    """Generate a token for a username without a password (for development)."""
+    username = username_data.get("username")
+    if not username:
+        raise HTTPException(status_code=400, detail="Username not provided")
+
+    async with SessionLocal() as db:
+        user = await get_user(db, username)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
         access_token = create_access_token(data={"sub": user.username})
         return Token(access_token=access_token, token_type="bearer")
