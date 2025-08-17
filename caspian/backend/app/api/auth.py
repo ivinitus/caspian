@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.db.models import SessionLocal
 from app.db.models import User
+from pydantic import ConfigDict
 
 # FastAPI router setup
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -39,6 +40,7 @@ class UserCreate(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     username: str
     created_at: datetime

@@ -38,15 +38,12 @@ class StartConversationRequest(BaseModel):
 
 @router.post("/", response_model=ConversationRead)
 async def start_conversation(
-    req: StartConversationRequest | None = None,
-    user_id: int | None = None,
+    req: StartConversationRequest,
 ):
     async with SessionLocal() as db:
         effective_user_id: int | None = None
         if req and req.user_id:
             effective_user_id = req.user_id
-        elif user_id:
-            effective_user_id = user_id
         elif req and req.username:
             # Look up user by username
             result = await db.execute(

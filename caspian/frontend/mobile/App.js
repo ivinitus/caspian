@@ -20,7 +20,10 @@ export default function App() {
         });
         const data = await res.json();
         setConversationId(data.id);
-      } catch (e) {}
+      } catch (e) {
+        console.error("Failed to start conversation:", e);
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry Sir, I could not connect to the server.' }])
+      }
     })();
   }, []);
 
@@ -41,7 +44,7 @@ export default function App() {
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json();
-      const reply = data.text || data.reply || 'Sorry Sir, I could not process that.';
+      const reply = data.text || 'Sorry Sir, I could not process that.';
       const assistantMsg = { role: 'assistant', content: reply };
       setMessages([...newMessages, assistantMsg]);
       await fetch(`${API_URL}/conversations/${conversationId}/messages`, {
