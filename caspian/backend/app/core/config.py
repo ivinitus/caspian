@@ -30,11 +30,11 @@ class Settings(BaseSettings):
 
     # Default personal user
     default_username: str = "sir"
-    default_user_password: str = "change-me"
+    default_user_password: str = "Vinitus@123"
     create_default_user_on_startup: bool = True
 
     # Security / Auth
-    secret_key: str = "change-me"
+    secret_key: str = "Vinitus@123"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 

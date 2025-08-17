@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
 from sqlalchemy import select
 
+
 from app.api.auth import router as auth_router
 from app.api.conversation import router as conversation_router
 from app.api.llm import router as llm_router
@@ -14,9 +15,17 @@ from app.db.models import SessionLocal
 from app.db.models import User
 from app.db.models import init_db
 from app.discord_bot.runner import start_discord_bot
+import uvicorn
+from app.api.rag import router as rag_router
 
 app = FastAPI(title=settings.app_name)
 
+origins = [
+    "http://localhost:3000",  # Your React/Vue dev server
+    "http://localhost:5173",  # Your Vite dev server
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
 # CORS for cross-platform clients
 app.add_middleware(
     CORSMiddleware,
@@ -25,7 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(rag_router)
 app.include_router(auth_router)
 app.include_router(conversation_router)
 app.include_router(llm_router)
@@ -58,3 +67,6 @@ async def startup_event():
 @app.get("/")
 def read_root():
     return {"message": "Hello Sir, I am Caspian. How may I assist you today?"}
+
+
+

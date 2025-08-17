@@ -6,13 +6,14 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://caspian_user:password@db:5432/caspian_db
-      - DISCORD_TOKEN=your_discord_token_here
-      - GEMINI_API_KEY=your_gemini_api_key_here
-      - SECRET_KEY=change-me
+      - DISCORD_TOKEN=MTQwNTU5MTQyOTI2MjA4MjEwOQ.Gdiubz.km_RUPUEaYdVgGT7DHWbtjYTs8zhGoCSxOqsCI
+      - LLM_PROVIDER=gemini
+      - GEMINI_API_KEY=AIzaSyBv6JXaMVUQH-RdJ4tqF5KrNxteDtnEg3g
+      - SECRET_KEY=Vinitus@123
     depends_on:
       - db
   db:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     restart: always
     environment:
       POSTGRES_USER: caspian_user

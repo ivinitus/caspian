@@ -58,7 +58,7 @@ async def ask_gemini(messages: list[dict[str, Any]], model: str) -> str:
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"Unexpected Gemini response: {data}") from exc
-
+    
 
 async def _ask_openai(messages: list[dict[str, Any]], model: str) -> str:
     if not settings.openai_api_key:
