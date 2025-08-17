@@ -9,3 +9,6 @@ discord.py
 httpx
 pydantic
 pydantic-settings
+pgvector
+python-multipart
+sentence_transformers
