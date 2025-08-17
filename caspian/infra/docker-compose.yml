@@ -5,9 +5,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://caspian_user:password@db:5432/caspian_db
+      - DATABASE_URL=postgresql+asyncpg://caspian_user:password@db:5433/caspian_db
       - DISCORD_TOKEN=REMOVED
-      - GEMINI_API_KEY=REMOVED
+      - GEMINI_API_KEY=AREMOVED
       - SECRET_KEY=Vinitus@123
     depends_on:
       - db
@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: caspian_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - caspian_db_data:/var/lib/postgresql/data
 volumes:
