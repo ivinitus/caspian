@@ -20,25 +20,19 @@ class Base(DeclarativeBase):
     pass
 
 
+
+# Single-user mode: hardcode user details
 class User(Base):
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    discord_id: Mapped[str] = mapped_column(String(30), nullable=True, unique=True, index=True)
-    hashed_password: Mapped[str] = mapped_column(String(128))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, default=1)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True, default="Vinitus")
     preferences: Mapped[dict] = mapped_column(JSON, default=dict)
-    conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
-    documents: Mapped[list["Document"]] = relationship(back_populates="user")
-    reminders: Mapped[list["Reminder"]] = relationship(back_populates="user")
 
 
 class Conversation(Base):
     __tablename__ = "conversations"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, default=1)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    user: Mapped["User"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation")
 
 
@@ -55,22 +49,21 @@ class Message(Base):
 class Document(Base):
     __tablename__ = "documents"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(384))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    user: Mapped["User"] = relationship(back_populates="documents")
 
 
 class Reminder(Base):
     __tablename__ = "reminders"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     content: Mapped[str] = mapped_column(Text)
     remind_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     is_sent: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    user: Mapped["User"] = relationship(back_populates="reminders")
+    # Recurrence fields
+    recurrence: Mapped[str | None] = mapped_column(String(50), default=None)  # e.g., 'daily', 'weekly', 'monthly', 'custom'
+    recurrence_rule: Mapped[dict | None] = mapped_column(JSON, default=None)  # for custom recurrence (e.g., cron, rrule)
 
 
 engine = create_async_engine(settings.database_url, echo=settings.sqlalchemy_echo)

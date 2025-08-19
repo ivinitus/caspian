@@ -17,7 +17,6 @@ async def get_similar_documents(
     embedding = get_embedding(query)
     result = await db.execute(
         select(Document)
-        .where(Document.user_id == user_id)
         .order_by(Document.embedding.l2_distance(embedding))
         .limit(limit)
     )

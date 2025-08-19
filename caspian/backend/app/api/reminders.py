@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 from datetime import datetime
 
-from app.db.models import Reminder, User, SessionLocal
-from app.api.dependencies import get_current_user
+from app.db.models import Reminder, SessionLocal
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -12,13 +11,9 @@ class ReminderCreate(BaseModel):
     remind_at: datetime
 
 @router.post("/", status_code=201)
-async def create_reminder(
-    reminder_data: ReminderCreate,
-    current_user: User = Depends(get_current_user)
-):
+async def create_reminder(reminder_data: ReminderCreate):
     async with SessionLocal() as db:
         new_reminder = Reminder(
-            user_id=current_user.id,
             content=reminder_data.content,
             remind_at=reminder_data.remind_at,
         )
