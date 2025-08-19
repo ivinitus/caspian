@@ -5,7 +5,20 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from pydantic import Field
 
+
 from app.plugins.manager import plugin_manager
+
+
+# Add web search endpoint after router is defined
+
+
+
+
+# Add web search endpoint at the very end, after all other code
+
+
+
+# To use web search, POST to /plugins/web_search with PluginCallRequest: {"args": {"query": "your search"}}
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 

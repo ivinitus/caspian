@@ -4,7 +4,6 @@ from sqlalchemy import select
 
 from app.db.models import Document, SessionLocal, User
 from app.rag import get_embedding
-from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
@@ -12,7 +11,6 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
 ):
     async with SessionLocal() as db:
         try:
@@ -22,7 +20,7 @@ async def upload_document(
             for chunk in chunks:
                 embedding = get_embedding(chunk)
                 doc = Document(
-                    user_id=current_user.id, content=chunk, embedding=embedding
+                    content=chunk, embedding=embedding
                 )
                 db.add(doc)
             await db.commit()
