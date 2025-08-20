@@ -3,8 +3,9 @@ import discord
 from sqlalchemy import select
 from app.core.config import settings
 from app.db.models import SessionLocal, User, Conversation, Message, Reminder
-from app.rag import get_similar_documents
+from app.rag import rag_system
 from datetime import datetime
+from app.core.personality import get_chat_prompt
 import json
 from app.api.auth import get_password_hash
 import secrets
@@ -557,20 +558,67 @@ class CaspianBot(discord.Client):
                         for msg in history[-MAX_HISTORY:]
                     ]
                     messages_for_llm = [
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": get_chat_prompt(
+                            user_id=message.author.id,
+                            username=str(message.author),
+                            platform="discord"
+                        )},
                         summary_message,
                         *recent_messages
                     ]
                 else:
                     messages_for_llm = [
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": get_chat_prompt(
+                            user_id=message.author.id,
+                            username=str(message.author),
+                            platform="discord"
+                        )},
                         *[{"role": map_sender(msg.sender), "content": msg.content} for msg in history]
                     ]
 
-                similar_docs = await get_similar_documents(db, user_id, message.content)
-                context = "\n".join([doc.content for doc in similar_docs])
-                if context:
-                    messages_for_llm[-1]["content"] = f"Context:\n{context}\n\nQuestion:\n{message.content}"
+                # Get context from RAG system
+                context_data = await rag_system.get_similar_documents(db, user_id, message.content)
+                
+                # Build context from documents and memories
+                doc_context = "\n".join([doc.content for doc in context_data["documents"]])
+                memory_context = "\n".join([
+                    f"{mem.content} (from memory)" 
+                    for mem in context_data["memories"]["long_term"]
+                ])
+                recent_context = "\n".join([
+                    f"{msg['content']} ({msg['type']})" 
+                    for msg in context_data["memories"]["short_term"]
+                ])
+                
+                # Combine all context
+                context_parts = []
+                if doc_context:
+                    context_parts.append("Documents:\n" + doc_context)
+                if memory_context:
+                    context_parts.append("Related Memories:\n" + memory_context)
+                if recent_context:
+                    context_parts.append("Recent Context:\n" + recent_context)
+                
+                full_context = "\n\n".join(context_parts)
+                
+                if full_context:
+                    messages_for_llm[-1]["content"] = (
+                        "Given the following context, please answer the user's question. "
+                        "Use the context to provide more personalized and contextually relevant responses.\n\n"
+                        f"Context:\n{full_context}\n\nQuestion:\n{message.content}"
+                    )
+                
+                # Store message in memory
+                await rag_system.add_to_memory(
+                    db,
+                    user_id=user_id,
+                    message={
+                        "content": message.content,
+                        "type": "user_message",
+                        "platform": "discord",
+                        "username": username
+                    }
+                )
 
                 response_text = await ask_llm(messages_for_llm)
                 final_reply = response_text.replace("Sir/Madam", username).replace("Madam", username).strip()

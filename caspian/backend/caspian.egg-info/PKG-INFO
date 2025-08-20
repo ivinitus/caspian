@@ -10,4 +10,5 @@ Requires-Dist: python-jose[cryptography]
 Requires-Dist: discord.py
 Requires-Dist: httpx
 Requires-Dist: pydantic
+Requires-Dist: pydantic-settings
 Dynamic: requires-dist
