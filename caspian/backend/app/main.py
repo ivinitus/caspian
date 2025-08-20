@@ -42,6 +42,16 @@ async def startup_event():
     main_loop = asyncio.get_running_loop()
     await init_db()
 
+    # Start Discord bot only if token is set
+    if settings.discord_token:
+        try:
+            start_discord_bot(main_loop)
+        except Exception as e:
+            print(f"Warning: Failed to start Discord bot: {e}")
+            print("Continuing without Discord bot...")
+    else:
+        print("DISCORD_TOKEN not set; Discord bot will not start.")
+
     if settings.create_default_user_on_startup:
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         async with SessionLocal() as db:
