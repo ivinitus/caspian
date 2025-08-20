@@ -7,3 +7,4 @@ python-jose[cryptography]
 discord.py
 httpx
 pydantic
+pydantic-settings
