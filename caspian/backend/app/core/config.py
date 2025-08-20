@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = (
-        "postgresql+asyncpg://caspian_user:password@localhost:5432/caspian_db"
+        "postgresql+asyncpg://caspian_user:password@localhost:5433/caspian_db"
     )
     sqlalchemy_echo: bool = False
 

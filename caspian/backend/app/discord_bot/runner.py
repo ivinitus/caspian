@@ -3,9 +3,16 @@ import asyncio
 from app.discord_bot.bot import run_bot
 from app.reminders import DISCORD_BOT_INSTANCE
 
+_bot_started = False
+
 def start_discord_bot(loop: asyncio.AbstractEventLoop):
     """Starts the discord bot in a new thread."""
+    global _bot_started
     
+    if _bot_started:
+        return
+        
+    _bot_started = True
     # A simple event to wait until the bot is ready
     bot_ready_event = threading.Event()
 
