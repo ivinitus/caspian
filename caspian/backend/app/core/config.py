@@ -1,11 +1,37 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
+import os
+import sys
 
+# Determine the environment file location silently
+def find_env_file():
+    """Find the .env file in various possible locations."""
+    # Define potential locations for the .env file
+    current_dir = os.getcwd()
+    backend_dir = os.path.join(current_dir, 'backend')
+    parent_backend_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    
+    possible_env_files = [
+        os.path.join(current_dir, '.env'),
+        os.path.join(backend_dir, '.env'),
+        os.path.join(parent_backend_dir, '.env'),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env')),
+    ]
+    
+    # Find the first existing .env file
+    for env_path in possible_env_files:
+        if os.path.exists(env_path):
+            return env_path
+    
+    return None
+
+# Find the .env file silently
+env_file = find_env_file()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=env_file if env_file else None,
         env_file_encoding="utf-8",
         case_sensitive=False,
     )

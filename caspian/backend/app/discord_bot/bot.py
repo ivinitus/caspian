@@ -14,168 +14,16 @@ from app.core.llm import ask_llm as summarize_llm
 from app.core.llm import ask_llm
 
 class CaspianBot(discord.Client):
-    async def on_ready(self):
-        print(f"Caspian Discord Bot connected as {self.user}")
-        self.loop.create_task(self.check_reminders_periodically())
-        if self.on_ready_callback:
-            self.on_ready_callback(self)
-
-    async def check_reminders_periodically(self):
-        from zoneinfo import ZoneInfo
-        from dateutil.relativedelta import relativedelta
-        while True:
-            try:
-                now = datetime.utcnow()
-                print(f"[ReminderChecker] Checking reminders at {now} UTC")
-                async with SessionLocal() as db:
-                    # Log all reminders for debugging
-                    all_reminders_result = await db.execute(select(Reminder))
-                    all_reminders = all_reminders_result.scalars().all()
-                    print("[ReminderChecker] All reminders in DB:")
-                    for r in all_reminders:
-                        print(f"  ID: {r.id}, remind_at: {r.remind_at}, is_sent: {r.is_sent}, content: {r.content}")
-
-                    result = await db.execute(
-                        select(Reminder).where(
-                            Reminder.remind_at <= now,
-                            Reminder.is_sent == False
-                        )
-                    )
-                    due_reminders = result.scalars().all()
-                    print(f"[ReminderChecker] Found {len(due_reminders)} due reminders.")
-
-                    for reminder in due_reminders:
-                        try:
-                            print(f"[ReminderChecker] Processing reminder ID {reminder.id} for content: {reminder.content}")
-                            DISCORD_USER_ID = 1093918301035429938
-                            print(f"[ReminderChecker] Fetching user {DISCORD_USER_ID}")
-                            discord_user = await self.fetch_user(DISCORD_USER_ID)
-                            print(f"[ReminderChecker] discord_user: {discord_user}")
-                            if discord_user:
-                                remind_at = reminder.remind_at
-                                if remind_at.tzinfo is None:
-                                    remind_at = remind_at.replace(tzinfo=ZoneInfo("UTC"))
-                                else:
-                                    remind_at = remind_at.astimezone(ZoneInfo("UTC"))
-                                remind_at_ist = remind_at.astimezone(ZoneInfo("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M:%S')
-                                print(f"[ReminderChecker] Sending DM: {reminder.content} at {remind_at_ist} IST")
-                                await discord_user.send(f"Sir, a reminder for you: {reminder.content}\nTime: {remind_at_ist} IST")
-                            else:
-                                print(f"[ReminderChecker] Could not fetch Discord user {DISCORD_USER_ID}")
-                            # Handle recurrence
-                            if reminder.recurrence and reminder.recurrence != "none":
-                                next_time = None
-                                if reminder.recurrence == "daily":
-                                    next_time = reminder.remind_at + relativedelta(days=1)
-                                elif reminder.recurrence == "weekly":
-                                    next_time = reminder.remind_at + relativedelta(weeks=1)
-                                elif reminder.recurrence == "monthly":
-                                    next_time = reminder.remind_at + relativedelta(months=1)
-                                elif reminder.recurrence_rule:
-                                    pass
-                                if next_time:
-                                    reminder.remind_at = next_time
-                                    reminder.is_sent = False
-                                    await db.commit()
-                                    print(f"[ReminderChecker] Rescheduled recurring reminder {reminder.id}")
-                                else:
-                                    reminder.is_sent = True
-                                    await db.commit()
-                                    print(f"[ReminderChecker] Marked reminder {reminder.id} as sent (no next recurrence)")
-                            else:
-                                reminder.is_sent = True
-                                await db.commit()
-                                print(f"[ReminderChecker] Sent reminder {reminder.id}")
-                        except Exception as e:
-                            print(f"[ReminderChecker] Error sending reminder {reminder.id}: {e}")
-            except Exception as e:
-                print(f"[ReminderChecker] An error occurred in the reminder checking loop: {e}")
-            await asyncio.sleep(5)
-    async def on_ready(self):
-        print(f"Caspian Discord Bot connected as {self.user}")
-        # Start background reminder checker
-        self.loop.create_task(self.check_reminders_periodically())
-        if self.on_ready_callback:
-            self.on_ready_callback(self)
-
-    async def check_reminders_periodically(self):
-        from zoneinfo import ZoneInfo
-        from dateutil.relativedelta import relativedelta
-        while True:
-            try:
-                now = datetime.utcnow()
-                print(f"[ReminderChecker] Checking reminders at {now} UTC")
-                async with SessionLocal() as db:
-                    # Log all reminders for debugging
-                    all_reminders_result = await db.execute(select(Reminder))
-                    all_reminders = all_reminders_result.scalars().all()
-                    print("[ReminderChecker] All reminders in DB:")
-                    for r in all_reminders:
-                        print(f"  ID: {r.id}, remind_at: {r.remind_at}, is_sent: {r.is_sent}, content: {r.content}")
-
-                    result = await db.execute(
-                        select(Reminder).where(
-                            Reminder.remind_at <= now,
-                            Reminder.is_sent == False
-                        )
-                    )
-                    due_reminders = result.scalars().all()
-                    print(f"[ReminderChecker] Found {len(due_reminders)} due reminders.")
-
-                    for reminder in due_reminders:
-                        try:
-                            print(f"[ReminderChecker] Processing reminder ID {reminder.id} for content: {reminder.content}")
-                            DISCORD_USER_ID = 1093918301035429938
-                            print(f"[ReminderChecker] Fetching user {DISCORD_USER_ID}")
-                            discord_user = await self.fetch_user(DISCORD_USER_ID)
-                            print(f"[ReminderChecker] discord_user: {discord_user}")
-                            if discord_user:
-                                remind_at = reminder.remind_at
-                                if remind_at.tzinfo is None:
-                                    remind_at = remind_at.replace(tzinfo=ZoneInfo("UTC"))
-                                else:
-                                    remind_at = remind_at.astimezone(ZoneInfo("UTC"))
-                                remind_at_ist = remind_at.astimezone(ZoneInfo("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M:%S')
-                                print(f"[ReminderChecker] Sending DM: {reminder.content} at {remind_at_ist} IST")
-                                await discord_user.send(f"Sir, a reminder for you: {reminder.content}\nTime: {remind_at_ist} IST")
-                            else:
-                                print(f"[ReminderChecker] Could not fetch Discord user {DISCORD_USER_ID}")
-                            # Handle recurrence
-                            if reminder.recurrence and reminder.recurrence != "none":
-                                next_time = None
-                                if reminder.recurrence == "daily":
-                                    next_time = reminder.remind_at + relativedelta(days=1)
-                                elif reminder.recurrence == "weekly":
-                                    next_time = reminder.remind_at + relativedelta(weeks=1)
-                                elif reminder.recurrence == "monthly":
-                                    next_time = reminder.remind_at + relativedelta(months=1)
-                                elif reminder.recurrence_rule:
-                                    pass
-                                if next_time:
-                                    reminder.remind_at = next_time
-                                    reminder.is_sent = False
-                                    await db.commit()
-                                    print(f"[ReminderChecker] Rescheduled recurring reminder {reminder.id}")
-                                else:
-                                    reminder.is_sent = True
-                                    await db.commit()
-                                    print(f"[ReminderChecker] Marked reminder {reminder.id} as sent (no next recurrence)")
-                            else:
-                                reminder.is_sent = True
-                                await db.commit()
-                                print(f"[ReminderChecker] Sent reminder {reminder.id}")
-                        except Exception as e:
-                            print(f"[ReminderChecker] Error sending reminder {reminder.id}: {e}")
-            except Exception as e:
-                print(f"[ReminderChecker] An error occurred in the reminder checking loop: {e}")
-            await asyncio.sleep(5)
     def __init__(self, *args, **kwargs):
         self.main_loop = kwargs.pop('main_loop')
         self.on_ready_callback = kwargs.pop('on_ready_callback')
         super().__init__(*args, **kwargs)
 
     async def on_ready(self):
-        print(f"Caspian Discord Bot connected as {self.user}")
+        # Silently register the bot
+        from app.reminders import register_bot_instance
+        register_bot_instance(self)
+        
         if self.on_ready_callback:
             self.on_ready_callback(self)
 
@@ -275,78 +123,7 @@ class CaspianBot(discord.Client):
 
     async def _handle_reminder_command(self, message) -> str:
         try:
-            now_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            prompt = f"""
-            Given the user's reminder request and the current UTC time, extract the reminder content, the exact time for the first reminder, and any recurrence pattern (e.g., daily, weekly, monthly, or a cron/rrule string if custom).
-            The current time is: {now_utc} UTC.
-            User request: "{message.content}"
-            Please return a JSON object with keys: "remind_at" (in YYYY-MM-DD HH:MM:SS format, UTC), "content", "recurrence" (e.g., daily/weekly/monthly/none), and "recurrence_rule" (null or a JSON object for custom recurrence).
-            """
-            messages_for_llm = [{"role": "user", "content": prompt}]
-            response_text = await ask_llm(messages_for_llm)
-            
-            json_response_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
-            reminder_data = json.loads(json_response_str)
-
-            remind_at_str = reminder_data.get("remind_at")
-            content = reminder_data.get("content")
-            recurrence = reminder_data.get("recurrence")
-            recurrence_rule = reminder_data.get("recurrence_rule")
-
-            if not remind_at_str or not content:
-                return "I'm sorry, Sir, I could not understand the reminder. Please try again."
-                
-            # Remove ' UTC' if present for robust parsing
-            remind_at_clean = remind_at_str.replace(' UTC', '').strip()
-            remind_at = datetime.strptime(remind_at_clean, '%Y-%m-%d %H:%M:%S')
-            # Always make reminder time UTC-aware before saving
-            from zoneinfo import ZoneInfo
-            # Store as naive UTC for DB compatibility
-            remind_at = remind_at.replace(tzinfo=None)
-
-
-            # Check if the reminder time is in the past
-            now_utc = datetime.now(ZoneInfo("UTC"))
-            # If remind_at is naive, treat as UTC
-            if remind_at.tzinfo is None:
-                remind_at_utc = remind_at.replace(tzinfo=ZoneInfo("UTC"))
-            else:
-                remind_at_utc = remind_at.astimezone(ZoneInfo("UTC"))
-            if remind_at_utc < now_utc:
-                return f"I'm sorry, Sir, the reminder time {remind_at_utc.strftime('%Y-%m-%d %H:%M:%S')} UTC is in the past. Please specify a future time."
-
-            async with SessionLocal() as db:
-                # Single-user mode: always use the same user
-                user = await db.get(User, 1)
-                if not user:
-                    user = User(id=1, username="Vinitus", preferences={})
-                    db.add(user)
-                    await db.commit()
-                    await db.refresh(user)
-
-                new_reminder = Reminder(
-                    content=content,
-                    remind_at=remind_at.replace(tzinfo=None),
-                    recurrence=recurrence,
-                    recurrence_rule=recurrence_rule,
-                )
-                db.add(new_reminder)
-                await db.commit()
-
-            remind_at_ist = remind_at_utc.astimezone(ZoneInfo("Asia/Kolkata")).strftime('%Y-%m-%d %H:%M:%S')
-            if recurrence and recurrence != "none":
-                return f"Very good, Sir. I will remind you about '{content}' at {remind_at_ist} IST and repeat {recurrence}."
-            else:
-                return f"Very good, Sir. I will remind you about '{content}' at {remind_at_ist} IST."
-
-        except Exception as e:
-            print(f"!!! ERROR in reminder handling: {e} !!!")
-            return "I'm sorry, Sir, I encountered an error while setting your reminder."
-
-
-    # ...existing code...
-    # ...existing code...
-        try:
+            # Use IST time for user-facing messages
             now_utc = datetime.utcnow()
             now_ist = now_utc.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
             now_ist_str = now_ist.strftime('%Y-%m-%d %H:%M:%S')
@@ -376,6 +153,11 @@ class CaspianBot(discord.Client):
             remind_at_ist = datetime.strptime(remind_at_clean, '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("Asia/Kolkata"))
             remind_at_utc = remind_at_ist.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
+            # Check if the reminder time is in the past
+            now_utc = datetime.now(ZoneInfo("UTC"))
+            if remind_at_ist < now_ist:
+                return f"I'm sorry, Sir, the reminder time {remind_at_str} IST is in the past. Please specify a future time."
+
             async with SessionLocal() as db:
                 # Single-user mode: always use the same user
                 user = await db.get(User, 1)
@@ -404,7 +186,6 @@ class CaspianBot(discord.Client):
             print(f"!!! ERROR in reminder handling: {e} !!!")
             return "I'm sorry, Sir, I encountered an error while setting your reminder."
     async def _process_and_get_reply(self, message) -> str | None:
-    # ...existing code...
         try:
             async with SessionLocal() as db:
                 # Single-user mode: always use the same user (id=1)
@@ -649,10 +430,21 @@ class CaspianBot(discord.Client):
 
 def run_bot(main_loop: asyncio.AbstractEventLoop, on_ready_callback):
     token = settings.discord_token
+    
     if not token:
-        print("DISCORD_TOKEN not set; Discord bot will not start.")
+        # Silent failure
+        if on_ready_callback:
+            on_ready_callback(None)
         return
-    intents = discord.Intents.default()
-    intents.message_content = True
-    client = CaspianBot(intents=intents, main_loop=main_loop, on_ready_callback=on_ready_callback)
-    client.run(token)
+    
+    try:
+        intents = discord.Intents.default()
+        intents.message_content = True
+        client = CaspianBot(intents=intents, main_loop=main_loop, on_ready_callback=on_ready_callback)
+        client.run(token)
+    except Exception as e:
+        # Only log critical errors
+        import logging
+        logging.getLogger("discord_bot").error(f"Failed to start Discord bot: {e}")
+        if on_ready_callback:
+            on_ready_callback(None)
