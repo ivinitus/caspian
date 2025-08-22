@@ -1,0 +1,182 @@
+import { useState, useEffect, useRef } from 'react';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { MessageList } from './MessageList';
+import { MessageInput } from './MessageInput';
+import './Chat.css';
+
+export function Chat() {
+  const { authToken, conversationId, username } = useAuth();
+  const [messages, setMessages] = useState([
+    { 
+      role: 'assistant', 
+      content: 'Hello Sir, I am Caspian. How may I assist you today?',
+      timestamp: new Date().toISOString()
+    },
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const messagesEndRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 3;
+
+  useEffect(() => {
+    // Scroll to bottom whenever messages change
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
+  useEffect(() => {
+    // Clear error when auth token or conversation ID changes (likely reconnected)
+    if (authToken && conversationId) {
+      setError(null);
+      reconnectAttemptsRef.current = 0;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    }
+  }, [authToken, conversationId]);
+  
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSendMessage = (content) => {
+    // Don't do anything if there's no content, already loading, or no connection
+    if (!content?.trim() || loading || !conversationId || !authToken) {
+      console.log('Send prevented: empty content, loading, or no connection');
+      return;
+    }
+
+    // Create the user message object
+    const userMsg = { 
+      role: 'user', 
+      content: content.trim(),
+      timestamp: new Date().toISOString()
+    };
+    
+    // Update the UI first
+    setMessages(prev => [...prev, userMsg]);
+    setLoading(true);
+    setError(null);
+    
+    // Wrap API calls in a separate async function to avoid issues with async/await
+    const sendMessageToAPI = async () => {
+      try {
+        // Save user message to conversation
+        console.log('Sending user message to conversation:', userMsg);
+        await api.sendMessage(authToken, conversationId, userMsg.content, 'user');
+        
+        // Get response from LLM
+        console.log('Sending message to LLM API');
+        const response = await api.getChatResponse(authToken, [...messages, userMsg]);
+        
+        // Check if response has the expected format
+        if (!response || typeof response !== 'object') {
+          throw new Error('Invalid response from server');
+        }
+        
+        // Get the reply text, with fallbacks for different API formats
+        let reply = response.text || response.content || response.message || '';
+        
+        // Handle empty responses
+        if (!reply || reply.trim() === '') {
+          reply = 'Sorry Sir, I could not generate a proper response. Please try again.';
+        }
+        
+        // Create assistant message
+        const assistantMsg = { 
+          role: 'assistant', 
+          content: reply,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Update UI with the assistant's response
+        setMessages(prev => [...prev, assistantMsg]);
+        
+        // Save assistant message to conversation
+        await api.sendMessage(authToken, conversationId, assistantMsg.content, 'assistant');
+        
+        // Reset reconnect attempts on successful communication
+        reconnectAttemptsRef.current = 0;
+      } catch (error) {
+        console.error('Error in chat communication:', error);
+        
+        // Handle specific error types
+        if (error.message.includes('expired') || error.message.includes('401')) {
+          setError('Your session has expired. Please log in again.');
+        } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+          setError('Network connection lost. Attempting to reconnect...');
+          attemptReconnect();
+        } else {
+          setError(`Communication error: ${error.message}`);
+        }
+      } finally {
+        // Always set loading to false
+        setLoading(false);
+      }
+    };
+    
+    // Call the API function but don't await it directly
+    sendMessageToAPI().catch(err => {
+      console.error("Unhandled promise rejection:", err);
+      setLoading(false);
+      setError("An unexpected error occurred. Please try again.");
+    });
+  };
+  
+  const attemptReconnect = () => {
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      setError('Unable to reconnect after multiple attempts. Please refresh the page.');
+      return;
+    }
+    
+    reconnectAttemptsRef.current += 1;
+    
+    // Exponential backoff: 2s, 4s, 8s, etc.
+    const backoffTime = 2000 * Math.pow(2, reconnectAttemptsRef.current - 1);
+    
+    reconnectTimeoutRef.current = setTimeout(async () => {
+      try {
+        setError(`Attempting to reconnect (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
+        
+        // Try to get a new token and conversation
+        const token = await api.authenticate(username);
+        const conversation = await api.startConversation(token, username);
+        
+        // Update these via context/state management (ideally handled in AuthContext)
+        // For now, we'll just show a message prompting refresh
+        setError('Reconnected! Please refresh the page to continue.');
+      } catch (error) {
+        console.error('Reconnection failed:', error);
+        setError('Reconnection failed. Trying again...');
+        attemptReconnect();
+      }
+    }, backoffTime);
+  };
+
+  return (
+    <div className="chat">
+      <MessageList 
+        messages={messages} 
+        loading={loading} 
+        messagesEndRef={messagesEndRef}
+        error={error}
+      />
+      
+      <div className="chat-input-area">
+        <MessageInput 
+          onSendMessage={handleSendMessage} 
+          disabled={loading || !conversationId || !authToken || !!error}
+          isLoading={loading}
+        />
+      </div>
+    </div>
+  );
+}

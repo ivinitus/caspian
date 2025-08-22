@@ -1,5 +1,6 @@
 import asyncio
 import discord
+import re
 from sqlalchemy import select
 from app.core.config import settings
 from app.db.models import SessionLocal, User, Conversation, Message, Reminder
@@ -12,6 +13,7 @@ import secrets
 from zoneinfo import ZoneInfo
 from app.core.llm import ask_llm as summarize_llm
 from app.core.llm import ask_llm
+from app.core.time_utils import get_current_time, get_current_time_utc, format_time, parse_time
 
 class CaspianBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -27,6 +29,101 @@ class CaspianBot(discord.Client):
         if self.on_ready_callback:
             self.on_ready_callback(self)
 
+    async def detect_reminder_intent(self, message_text):
+        """
+        Detect if a message is trying to create a reminder using natural language.
+        Returns a tuple of (is_reminder_intent, confidence_score)
+        """
+        # Import the NL parser
+        from app.core.nl_reminder_parser import NaturalLanguageReminderParser
+        
+        # Common reminder request patterns
+        reminder_phrases = [
+            "remind me",
+            "set a reminder",
+            "create a reminder", 
+            "don't forget",
+            "make sure to",
+            "remind me to",
+            "set an alarm",
+            "create an alarm",
+            "remind",
+            "remember to",
+            "i need to",
+            "schedule",
+            "remember that",
+        ]
+        
+        time_phrases = [
+            "today", "tomorrow", "next week", "next month",
+            "in an hour", "in a minute", "in a day",
+            "at", "on", "this evening", "this morning",
+            "this afternoon", "tonight", "am", "pm",
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+            "january", "february", "march", "april", "may", "june", "july", 
+            "august", "september", "october", "november", "december",
+            "1st", "2nd", "3rd", "4th", "5th", "10th", "15th", "30th",
+            ":00", ":15", ":30", ":45", "o'clock"
+        ]
+        
+        lower_text = message_text.lower()
+        
+        # Check for reminder phrases
+        has_reminder_phrase = any(phrase in lower_text for phrase in reminder_phrases)
+        
+        # Check for time references
+        has_time_reference = any(phrase in lower_text for phrase in time_phrases)
+        
+        # If we have a natural language parser, try to parse the message
+        try:
+            parser = NaturalLanguageReminderParser()
+            content, remind_at, recurrence, _ = parser.parse(message_text)
+            
+            # If we can extract both content and a time, it's likely a reminder
+            if content and remind_at:
+                return True, 0.9
+        except Exception:
+            # If parsing fails, fall back to the simpler heuristic check
+            pass
+        
+        # If both reminder phrases and time references are present, it's likely a reminder request
+        if has_reminder_phrase and has_time_reference:
+            return True, 0.9
+        elif has_reminder_phrase:
+            return True, 0.6
+        elif has_time_reference and ("remind" in lower_text or "forget" in lower_text):
+            return True, 0.7
+        
+        # If all else fails, use LLM to check if this is a reminder request
+        try:
+            from app.core.llm import ask_llm
+            prompt = f"""
+            Analyze this message and determine if it's a reminder request. 
+            Message: "{message_text}"
+            
+            Respond with a JSON object with these properties:
+            - "is_reminder": boolean (true/false)
+            - "confidence": float between 0 and 1
+            
+            Example: {{"is_reminder": true, "confidence": 0.8}}
+            """
+            messages_for_llm = [{"role": "user", "content": prompt}]
+            response_text = await ask_llm(messages_for_llm)
+            
+            # Extract JSON from response
+            import re
+            import json
+            json_match = re.search(r'({.*})', response_text.replace('\n', ' '), re.DOTALL)
+            if json_match:
+                json_response_str = json_match.group(1)
+                llm_analysis = json.loads(json_response_str)
+                if llm_analysis.get("is_reminder"):
+                    return True, llm_analysis.get("confidence", 0.7)
+        except Exception as e:
+            print(f"LLM reminder intent detection error: {e}")
+        
+        return False, 0.0
+    
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -103,8 +200,18 @@ class CaspianBot(discord.Client):
                     else:
                         await message.channel.send(f"Could not fetch user with ID {DISCORD_USER_ID}.")
                     return
-                # Existing commands
-                if message.content.startswith('!remind'):
+                
+                # Check for natural language reminder intent
+                is_reminder, confidence = await self.detect_reminder_intent(message.content)
+                
+                # Process as a reminder if the confidence is high enough
+                if is_reminder and confidence >= 0.6:
+                    future = asyncio.run_coroutine_threadsafe(
+                        self._handle_reminder_command(message), self.main_loop
+                    )
+                    reply = await asyncio.wrap_future(future)
+                # Legacy command support
+                elif message.content.startswith('!remind'):
                     future = asyncio.run_coroutine_threadsafe(
                         self._handle_reminder_command(message), self.main_loop
                     )
@@ -123,40 +230,218 @@ class CaspianBot(discord.Client):
 
     async def _handle_reminder_command(self, message) -> str:
         try:
-            # Use IST time for user-facing messages
-            now_utc = datetime.utcnow()
-            now_ist = now_utc.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
-            now_ist_str = now_ist.strftime('%Y-%m-%d %H:%M:%S')
+            # Import necessary modules
+            import re  # Make sure re is available within this function
+            from app.core.llm_reminder_parser import LLMEnhancedReminderParser
+            from app.core.time_utils import get_current_time, get_current_time_utc, format_time, parse_time, convert_to_utc
+            
+            # Use synchronized time for consistent timing
+            now_utc = get_current_time_utc()
+            now_ist = get_current_time(timezone="Asia/Kolkata")
+            now_ist_str = format_time(now_ist)
+            
+            # Create the enhanced parser
+            parser = LLMEnhancedReminderParser()
+            
+            try:
+                # Parse with our enhanced parser
+                content, remind_at, recurrence, recurrence_rule = await parser.parse(message.content)
+                
+                # If we got valid parsing results, use them
+                if content and remind_at:
+                    remind_at_ist = remind_at  # Already in IST timezone
+                    # Use our convert_to_utc helper for consistent timezone handling
+                    from app.core.time_utils import convert_to_naive_utc
+                    remind_at_utc = convert_to_naive_utc(remind_at_ist)
+                    
+                    # Check if the reminder time is in the past
+                    if remind_at_ist < now_ist:
+                        from dateutil.relativedelta import relativedelta
+                        
+                        # Handle common cases of implied future dates
+                        if remind_at_ist.date() == now_ist.date():
+                            # Same day, but time already passed (like "remind me at 9am" when it's already 10am)
+                            # If it's a reminder for morning (before noon) and it's already afternoon/evening,
+                            # assume they mean tomorrow morning
+                            if remind_at_ist.hour < 12 and now_ist.hour >= 12:
+                                remind_at_ist = remind_at_ist + relativedelta(days=1)
+                                remind_at_utc = convert_to_naive_utc(remind_at_ist)
+                            else:
+                                return f"I'm sorry, Sir, the reminder time {format_time(remind_at_ist)} is in the past. The current time is {format_time(now_ist)}. Please specify a future time."
+                        elif remind_at_ist.time() == now_ist.replace(hour=0, minute=0, second=0, microsecond=0).time():
+                            # If it's midnight exactly and date is in past, they likely mean midnight tonight/tomorrow morning
+                            midnight_tonight = now_ist.replace(hour=0, minute=0, second=0, microsecond=0) + relativedelta(days=1)
+                            remind_at_ist = midnight_tonight
+                            remind_at_utc = convert_to_naive_utc(remind_at_ist)
+                        elif remind_at_ist.date().day == now_ist.date().day and remind_at_ist.date().month == now_ist.date().month:
+                            # Same day of month but earlier month/year - likely means next month/year
+                            if remind_at_ist.date().month == now_ist.date().month:
+                                # Same month, so advance by a year
+                                remind_at_ist = remind_at_ist + relativedelta(years=1)
+                            else:
+                                # Different month, so advance by a month
+                                remind_at_ist = remind_at_ist + relativedelta(months=1)
+                            remind_at_utc = convert_to_naive_utc(remind_at_ist)
+                        else:
+                            return f"I'm sorry, Sir, the reminder time {format_time(remind_at_ist)} is in the past. The current time is {format_time(now_ist)}. Please specify a future time."
+                    
+                    # Validate and refine with LLM if needed
+                    content, remind_at_ist = await parser.validate_and_refine(content, remind_at_ist, message.content)
+                    from app.core.time_utils import convert_to_naive_utc
+                    remind_at_utc = convert_to_naive_utc(remind_at_ist)
+                    
+                    # Save the reminder
+                    async with SessionLocal() as db:
+                        # Single-user mode: always use the same user
+                        user = await db.get(User, 1)
+                        if not user:
+                            user = User(id=1, username="Vinitus", preferences={})
+                            db.add(user)
+                            await db.commit()
+                            await db.refresh(user)
+                        
+                        new_reminder = Reminder(
+                            content=content,
+                            # Store as UTC in database without timezone info (already naive from convert_to_naive_utc)
+                            remind_at=remind_at_utc,
+                            recurrence=recurrence if recurrence != "none" else None,
+                            recurrence_rule=recurrence_rule,
+                        )
+                        db.add(new_reminder)
+                        await db.commit()
+
+                    # Format time nicely for display
+                    formatted_time = format_time(remind_at_ist, include_timezone=False)
+                    
+                    # Check if this is a very short duration reminder (within 60 seconds)
+                    time_difference_seconds = (remind_at_ist - now_ist).total_seconds()
+                    is_short_duration = 0 < time_difference_seconds <= 60
+                    
+                    # Get a natural language confirmation using the LLM
+                    try:
+                        from app.core.llm import ask_llm
+                        confirmation_prompt = f"""
+                        Generate a natural, friendly confirmation that a reminder has been set.
+                        
+                        Reminder details:
+                        - Task: {content}
+                        - Time: {"in just " + str(int(time_difference_seconds)) + " seconds from now" if is_short_duration else formatted_time}
+                        - Recurrence: {recurrence if recurrence else 'none'}
+                        
+                        {"Keep it very brief, friendly, and make it clear this reminder will happen very soon." if is_short_duration else "Keep it concise, friendly and helpful"}
+                        Always address the user as "Sir".
+                        Use emoji like ⏰ or 🔔 to make it more engaging.
+                        Make it sound like a helpful personal assistant.
+                        """
+                        messages_for_llm = [{"role": "user", "content": confirmation_prompt}]
+                        confirmation = await ask_llm(messages_for_llm)
+                        
+                        # If the LLM response is reasonable, use it
+                        if 50 < len(confirmation) < 200 and "Sir" in confirmation:
+                            return confirmation
+                    except Exception as e:
+                        print(f"Error generating natural confirmation: {e}")
+                    
+                    # Fall back to standard confirmation
+                    time_difference_seconds = (remind_at_ist - now_ist).total_seconds()
+                    is_short_duration = 0 < time_difference_seconds <= 60
+                    
+                    if is_short_duration:
+                        seconds = int(time_difference_seconds)
+                        return f"🔔 All set, Sir! I'll remind you to '{content}' in just {seconds} seconds."
+                    elif recurrence and recurrence != "none":
+                        return f"⏰ Reminder set, Sir! I'll remind you to {content} at {formatted_time}. This will repeat {recurrence}."
+                    else:
+                        return f"⏰ Reminder set, Sir! I'll remind you to {content} at {formatted_time}. This will be a one-time alert."
+            except Exception as e:
+                # If our parser fails, fall back to the default approach
+                import traceback
+                print(f"Enhanced reminder parser failed: {e}")
+                print(traceback.format_exc())
+                # Continue to the fallback approach
+            
+            # Enhanced prompt for better natural language understanding via LLM
             prompt = f"""
-            Given the user's reminder request and the current IST time, extract the reminder content, the exact time for the first reminder, and any recurrence pattern (e.g., daily, weekly, monthly, or a cron/rrule string if custom).
-            The current time is: {now_ist_str} IST (Asia/Kolkata).
+            Parse this natural language reminder request. The current time is: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST (Asia/Kolkata).
+            
             User request: "{message.content}"
-            Please return a JSON object with keys: "remind_at" (in YYYY-MM-DD HH:MM:SS format, IST), "content", "recurrence" (e.g., daily/weekly/monthly/none), and "recurrence_rule" (null or a JSON object for custom recurrence).
+            
+            Extract the following information:
+            1. What is the specific task or reminder content?
+            2. When should the reminder be sent (exact date and time)?
+            3. Is there any recurrence pattern (daily, weekly, monthly, etc.)?
+            
+            Return a JSON object with these keys:
+            - "remind_at": The exact date and time for the reminder in YYYY-MM-DD HH:MM:SS format (IST timezone)
+            - "content": The reminder text/task description
+            - "recurrence": The recurrence pattern (daily, weekly, monthly, none)
+            - "recurrence_rule": Additional recurrence details (null if not applicable)
+            
+            Examples:
+            Example 1:
+            Input: "Remind me to call mom tomorrow at 5pm"
+            Output: {"remind_at": "2023-08-15 17:00:00", "content": "Call mom", "recurrence": "none", "recurrence_rule": null}
+            
+            Example 2:
+            Input: "Don't forget to take medicine every day at 9am"
+            Output: {"remind_at": "2023-08-14 09:00:00", "content": "Take medicine", "recurrence": "daily", "recurrence_rule": null}
+            
+            Return only valid JSON that can be parsed by Python's json.loads().
             """
+            
             messages_for_llm = [{"role": "user", "content": prompt}]
             response_text = await ask_llm(messages_for_llm)
             
-            json_response_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
-            reminder_data = json.loads(json_response_str)
-
+            # Extract JSON from response (handle different output formats)
+            import re
+            json_match = re.search(r'({.*})', response_text.replace('\n', ' '), re.DOTALL)
+            if json_match:
+                json_response_str = json_match.group(1)
+            else:
+                json_response_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
+            
+            # Clean up the JSON string for more robust parsing
+            json_response_str = json_response_str.replace("'", '"')
+            
+            try:
+                reminder_data = json.loads(json_response_str)
+            except json.JSONDecodeError as e:
+                print(f"JSON parsing error: {e}\nResponse text: {response_text}")
+                return "I'm sorry, Sir, I couldn't understand the reminder details. Could you please be more specific about the time and task?"
+            
             remind_at_str = reminder_data.get("remind_at")
             content = reminder_data.get("content")
-            recurrence = reminder_data.get("recurrence")
+            recurrence = reminder_data.get("recurrence", "none")
             recurrence_rule = reminder_data.get("recurrence_rule")
 
             if not remind_at_str or not content:
-                return "I'm sorry, Sir, I could not understand the reminder. Please try again."
+                return "I'm sorry, Sir, I couldn't determine when or what to remind you about. Could you please provide a specific time and task?"
 
             # Parse as IST, store as UTC
             # Remove ' IST' or ' UTC' if present for robust parsing
             remind_at_clean = remind_at_str.replace(' IST', '').replace(' UTC', '').strip()
-            remind_at_ist = datetime.strptime(remind_at_clean, '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            try:
+                remind_at_ist = datetime.strptime(remind_at_clean, '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            except ValueError:
+                # Try alternative date formats if the standard format fails
+                try:
+                    from dateutil import parser as date_parser
+                    remind_at_ist = date_parser.parse(remind_at_clean).replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+                except Exception:
+                    return f"I'm sorry, Sir, I couldn't understand the time format '{remind_at_str}'. Please specify a clear date and time."
+            
             remind_at_utc = remind_at_ist.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
             # Check if the reminder time is in the past
-            now_utc = datetime.now(ZoneInfo("UTC"))
             if remind_at_ist < now_ist:
-                return f"I'm sorry, Sir, the reminder time {remind_at_str} IST is in the past. Please specify a future time."
+                # For times that appear to be in the past, assume the user means tomorrow
+                if (now_ist.date() == remind_at_ist.date() and 
+                    remind_at_ist.hour < 12 and now_ist.hour >= 12):
+                    # If it's afternoon/evening now and the reminder time is morning, assume tomorrow
+                    remind_at_ist = remind_at_ist.replace(day=remind_at_ist.day + 1)
+                    remind_at_utc = remind_at_ist.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+                else:
+                    return f"I'm sorry, Sir, the reminder time {remind_at_ist.strftime('%Y-%m-%d %H:%M:%S')} IST is in the past. Please specify a future time."
 
             async with SessionLocal() as db:
                 # Single-user mode: always use the same user
@@ -170,21 +455,26 @@ class CaspianBot(discord.Client):
                 new_reminder = Reminder(
                     content=content,
                     remind_at=remind_at_utc,
-                    recurrence=recurrence,
+                    recurrence=recurrence if recurrence != "none" else None,
                     recurrence_rule=recurrence_rule,
                 )
                 db.add(new_reminder)
                 await db.commit()
 
+            # Format time nicely for display
+            formatted_time = remind_at_ist.strftime('%I:%M %p on %A, %B %d')
+            
             # Display time in IST to user
             if recurrence and recurrence != "none":
-                return f"Very good, Sir. I will remind you about '{content}' at {remind_at_str} IST and repeat {recurrence}."
+                return f"Very good, Sir. I will remind you to '{content}' at {formatted_time} and repeat {recurrence}."
             else:
-                return f"Very good, Sir. I will remind you about '{content}' at {remind_at_str} IST."
+                return f"Very good, Sir. I will remind you to '{content}' at {formatted_time}."
 
         except Exception as e:
+            import traceback
             print(f"!!! ERROR in reminder handling: {e} !!!")
-            return "I'm sorry, Sir, I encountered an error while setting your reminder."
+            print(traceback.format_exc())
+            return "I'm sorry, Sir, I encountered an error while setting your reminder. Please try again with a clearer date and time."
     async def _process_and_get_reply(self, message) -> str | None:
         try:
             async with SessionLocal() as db:

@@ -52,6 +52,13 @@ async def startup_event():
     else:
         print("DISCORD_TOKEN not set; Discord bot will not start.")
 
+    # Start the reminder checking task
+    try:
+        asyncio.create_task(check_reminders_periodically())
+        print("Reminder checking task started")
+    except Exception as e:
+        print(f"Warning: Failed to start reminder checking task: {e}")
+
     if settings.create_default_user_on_startup:
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         async with SessionLocal() as db:
@@ -63,8 +70,6 @@ async def startup_event():
                 hashed_pw = pwd_context.hash(settings.default_user_password)
                 db.add(User(username=settings.default_username))
                 await db.commit()
-    
-    start_discord_bot(main_loop)
 
 
 @app.get("/")
