@@ -5,10 +5,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://caspian_user:password@db:5433/caspian_db
-      - DISCORD_TOKEN=REMOVED
-      - GEMINI_API_KEY=AREMOVED
-      - SECRET_KEY=Vinitus@123
+      - DATABASE_URL=postgresql+asyncpg://caspian_user:${DB_PASSWORD:-password}@db:5433/caspian_db
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-mysecretkey}
     depends_on:
       - db
   db:
@@ -16,7 +16,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: caspian_user
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
       POSTGRES_DB: caspian_db
     ports:
       - "5433:5432"

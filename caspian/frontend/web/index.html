@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+  <script>
+    // Fix for form submission causing page reload
+    window.addEventListener("DOMContentLoaded", function() {
+      document.addEventListener("submit", function(e) {
+        // Only prevent default for forms within our React app
+        if (e.target.closest("#root")) {
+          e.preventDefault();
+          console.log("Prevented form submission navigation");
+        }
+      });
+    });
+  </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Caspian AI Assistant</title>
@@ -59,3 +71,4 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
+
