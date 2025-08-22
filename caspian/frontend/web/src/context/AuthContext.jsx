@@ -6,11 +6,13 @@ const AuthContext = createContext(null);
 // Local storage keys
 const TOKEN_KEY = 'caspian_auth_token';
 const CONVERSATION_KEY = 'caspian_conversation_id';
-const USERNAME_KEY = 'caspian_username';
 const TOKEN_TIMESTAMP_KEY = 'caspian_token_timestamp';
 
 // Token expiration time (24 hours)
 const TOKEN_EXPIRATION_MS = 24 * 60 * 60 * 1000;
+
+// Fixed username for sole user
+const FIXED_USERNAME = 'sir';
 
 export function AuthProvider({ children }) {
   const [authToken, setAuthToken] = useState(() => {
@@ -18,9 +20,6 @@ export function AuthProvider({ children }) {
   });
   const [conversationId, setConversationId] = useState(() => {
     return localStorage.getItem(CONVERSATION_KEY) || null;
-  });
-  const [username, setUsername] = useState(() => {
-    return localStorage.getItem(USERNAME_KEY) || 'sir';
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,25 +44,21 @@ export function AuthProvider({ children }) {
     setAuthStatus('unauthenticated');
   }, []);
 
-  // Function to authenticate with a specific username
-  const login = useCallback(async (usernameToUse) => {
+  // Function to authenticate
+  const login = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       setAuthStatus('checking');
       
-      const userToUse = usernameToUse || username;
-      
       // Get auth token
-      const token = await api.authenticate(userToUse);
+      const token = await api.authenticate(FIXED_USERNAME);
       setAuthToken(token);
       localStorage.setItem(TOKEN_KEY, token);
       localStorage.setItem(TOKEN_TIMESTAMP_KEY, Date.now().toString());
-      localStorage.setItem(USERNAME_KEY, userToUse);
-      setUsername(userToUse);
       
       // Start conversation
-      const conversation = await api.startConversation(token, userToUse);
+      const conversation = await api.startConversation(token, FIXED_USERNAME);
       setConversationId(conversation.id);
       localStorage.setItem(CONVERSATION_KEY, conversation.id);
       
@@ -78,17 +73,17 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [username, logout]);
+  }, [logout]);
   
   // Function to refresh the token
   const refreshSession = useCallback(async () => {
     try {
-      return await login(username);
+      return await login();
     } catch (err) {
       console.error("Session refresh failed:", err);
       throw err;
     }
-  }, [login, username]);
+  }, [login]);
 
   // Initialize authentication
   useEffect(() => {
@@ -129,7 +124,7 @@ export function AuthProvider({ children }) {
   const value = {
     authToken,
     conversationId,
-    username,
+    username: FIXED_USERNAME,
     loading,
     error,
     authStatus,

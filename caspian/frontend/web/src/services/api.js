@@ -149,7 +149,7 @@ export const api = {
     }
   },
   
-  /**
+    /**
  * Upload a file for RAG
  */
 uploadFile: async (token, file) => {
@@ -159,6 +159,8 @@ uploadFile: async (token, file) => {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    console.log(`Uploading file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
     
     const response = await fetchWithRetry(`${API_URL}/rag/upload`, {
       method: 'POST',
@@ -181,9 +183,16 @@ uploadFile: async (token, file) => {
     
     return result;
   } catch (error) {
+    console.error('File upload error details:', error);
+    
     // Convert abort errors to more user-friendly messages
     if (error.name === 'AbortError') {
       throw new Error('Upload timed out. Please try again with a smaller file or check your connection.');
+    }
+    
+    // Handle encoding errors
+    if (error.message.includes('codec') || error.message.includes('decode') || error.message.includes('utf-8')) {
+      throw new Error('File encoding not supported. Please convert to UTF-8 or try a different file format.');
     }
     
     // Handle other specific upload errors
@@ -191,8 +200,44 @@ uploadFile: async (token, file) => {
       throw new Error('File is too large for the server to process.');
     }
     
+    if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+      throw new Error('Server could not process this file. The format may be unsupported.');
+    }
+    
     // Rethrow the original error with upload context
     throw new Error(`File upload failed: ${error.message}`);
+  }
+},
+
+/**
+ * Extract content from a file without storing it (diagnostic endpoint)
+ */
+extractFileContent: async (token, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    console.log(`Extracting content from file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
+    
+    const response = await fetchWithRetry(`${API_URL}/rag/extract-content`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('File content extraction error:', error);
+    throw new Error(`Content extraction failed: ${error.message}`);
   }
 }
 };

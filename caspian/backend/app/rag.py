@@ -102,11 +102,23 @@ class RAGSystem:
         # Rerank results
         if documents:
             doc_texts = [doc.content for doc in documents]
+            
+            # Calculate cosine similarity manually using numpy
+            def cosine_similarity(a, b):
+                # Convert embedding to numpy array if it's a list
+                if isinstance(a, list):
+                    a = np.array(a)
+                if isinstance(b, list):
+                    b = np.array(b)
+                
+                # Calculate cosine similarity: dot(a, b) / (norm(a) * norm(b))
+                return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+            
             doc_scores = [
-                1 - self.model.cosine_similarity(
+                1 - cosine_similarity(
                     query_embedding,
                     doc.embedding
-                )[0] for doc in documents
+                ) for doc in documents
             ]
             
             reranked = rerank_results(processed_query, doc_texts, doc_scores)

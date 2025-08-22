@@ -3,19 +3,70 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.sqlite3
-*.log
+*.so
+.Python
+env/
+venv/
 .venv/
 .env
 .env.*
+*.sqlite3
+*.log
+*.bak
+*.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
 
-# Node
+# JavaScript/Node
 node_modules/
 dist/
 build/
+dist-ssr/
+*.local
+.pnp
+.pnp.js
+.npm
+.eslintcache
+.yarn-integrity
+.parcel-cache
+.nuxt
+.cache
+.next
+out
+.svelte-kit
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Deployment/Secrets - Be careful with these!
+**/secrets.yaml
+**/*.pem
+**/*.key
+**/*.crt
 
 # OS/Editor
 .DS_Store
 Thumbs.db
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

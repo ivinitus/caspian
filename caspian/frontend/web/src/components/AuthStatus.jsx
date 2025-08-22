@@ -48,7 +48,7 @@ export function AuthStatus() {
       ) : (
         <>
           <FiAlertCircle className="status-icon" />
-          <span>Not connected to Caspian</span>
+          <span>Connecting to Caspian...</span>
           <button className="refresh-button" onClick={handleRefresh}>
             <FiRefreshCw />
             Connect
@@ -62,7 +62,6 @@ export function AuthStatus() {
 function getStatusClass(status, error) {
   if (error) return 'error';
   switch (status) {
-    case 'checking': return 'loading';
     case 'authenticated': return 'success';
     case 'expired': return 'warning';
     case 'unauthenticated': return 'error';
