@@ -1,7 +1,7 @@
 {
-  "name": "web",
+  "name": "caspian-web",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,13 +11,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "prismjs": "^1.30.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-icons": "^5.2.0",
+    "react-markdown": "^9.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "react-transition-group": "^4.4.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
+    "@types/react-syntax-highlighter": "^15.5.11",
     "@vitejs/plugin-react": "^5.0.0",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -25,5 +31,8 @@
     "globals": "^16.3.0",
     "prettier": "^3.3.3",
     "vite": "^7.1.2"
+  },
+  "overrides": {
+    "prismjs": "^1.30.0"
   }
 }

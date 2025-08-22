@@ -4,6 +4,55 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Caspian AI Assistant</title>
+    <!-- Single preventative script for form submission -->
+    <script>
+      (function() {
+        // Global variable to track if we've already handled form submission
+        window.__preventDefaultHandled = false;
+        
+        // Function to setup form submission prevention
+        function setupFormPrevention() {
+          if (window.__preventDefaultHandled) return;
+          
+          // Prevent all form submissions
+          document.addEventListener('submit', function(e) {
+            console.log('Form submission intercepted');
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }, true);
+          
+          // Also prevent 'Enter' key in inputs outside of textarea
+          document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && 
+                e.target.tagName !== 'TEXTAREA' && 
+                !e.target.closest('form')) {
+              console.log('Enter key prevented');
+              e.preventDefault();
+            }
+          }, true);
+          
+          window.__preventDefaultHandled = true;
+          console.log('Form prevention handlers installed');
+        }
+        
+        // Run immediately
+        if (document.readyState === 'complete' || 
+            document.readyState === 'interactive') {
+          setupFormPrevention();
+        } else {
+          window.addEventListener('DOMContentLoaded', setupFormPrevention);
+        }
+        
+        // Also run when the page is about to unload (last chance to prevent navigation)
+        window.addEventListener('beforeunload', function(e) {
+          console.log('beforeunload event triggered');
+          // This message won't actually display in most browsers unless
+          // the user has interacted with the page
+          e.returnValue = 'Are you sure you want to leave?';
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
