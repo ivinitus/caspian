@@ -8,7 +8,6 @@
         // Only prevent default for forms within our React app
         if (e.target.closest("#root")) {
           e.preventDefault();
-          console.log("Prevented form submission navigation");
         }
       });
     });
@@ -28,7 +27,6 @@
           
           // Prevent all form submissions
           document.addEventListener('submit', function(e) {
-            console.log('Form submission intercepted');
             e.preventDefault();
             e.stopPropagation();
             return false;
@@ -39,13 +37,11 @@
             if (e.key === 'Enter' && 
                 e.target.tagName !== 'TEXTAREA' && 
                 !e.target.closest('form')) {
-              console.log('Enter key prevented');
               e.preventDefault();
             }
           }, true);
           
           window.__preventDefaultHandled = true;
-          console.log('Form prevention handlers installed');
         }
         
         // Run immediately
@@ -58,7 +54,6 @@
         
         // Also run when the page is about to unload (last chance to prevent navigation)
         window.addEventListener('beforeunload', function(e) {
-          console.log('beforeunload event triggered');
           // This message won't actually display in most browsers unless
           // the user has interacted with the page
           e.returnValue = 'Are you sure you want to leave?';

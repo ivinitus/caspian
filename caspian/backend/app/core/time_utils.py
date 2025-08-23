@@ -56,7 +56,6 @@ async def sync_time():
         # If we've synced recently, don't do it again unless forced
         current_time = time.time()
         if _time_offset is not None and current_time - _last_sync_time < _sync_interval:
-            logger.debug(f"Using cached time offset: {_time_offset:.3f}s")
             return True
         
         old_offset = _time_offset

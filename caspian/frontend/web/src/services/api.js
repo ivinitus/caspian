@@ -13,15 +13,11 @@ const RETRY_DELAY = 1000; // 1 second
  * Wrapper function to handle retries and consistent error handling
  */
 async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
-  console.log(`API Request: ${options.method} ${url}`, options);
-  
   try {
     const response = await fetch(url, options);
-    console.log(`API Response status: ${response.status} ${response.statusText}`);
     
     // Handle rate limiting (429)
     if (response.status === 429 && retries > 0) {
-      console.log(`Rate limited, retrying in ${RETRY_DELAY}ms...`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
       return fetchWithRetry(url, options, retries - 1);
     }
@@ -42,7 +38,6 @@ async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
       } catch (jsonError) {
         // If we can't parse the error as JSON, use text
         const errorText = await response.text().catch(() => 'Unknown error');
-        console.error(`API Error (${response.status}), couldn't parse JSON:`, errorText);
         throw new Error(`Request failed with status ${response.status}: ${errorText.slice(0, 100)}`);
       }
     }
@@ -51,12 +46,10 @@ async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
   } catch (error) {
     // Handle network errors with retry
     if (error.name === 'TypeError' && error.message.includes('network') && retries > 0) {
-      console.log(`Network error, retrying in ${RETRY_DELAY}ms...`, error);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
       return fetchWithRetry(url, options, retries - 1);
     }
     
-    console.error('Fetch error:', error);
     throw error;
   }
 }
@@ -112,7 +105,6 @@ export const api = {
    * Get a response from the LLM
    */
   getChatResponse: async (token, messages) => {
-    console.log('API: Sending chat request with messages:', messages);
     try {
       const response = await fetchWithRetry(`${API_URL}/llm/chat`, {
         method: 'POST',
@@ -126,7 +118,6 @@ export const api = {
       });
       
       const data = await response.json();
-      console.log('API: LLM response data:', data);
       
       // Handle different response formats
       if (typeof data === 'string') {
@@ -140,11 +131,9 @@ export const api = {
                 "Sorry, I couldn't process that request."
         };
       } else {
-        console.error('API: Unexpected response format from LLM:', data);
         return { text: "Sorry, I received an unexpected response format." };
       }
     } catch (error) {
-      console.error('API: Error in getChatResponse:', error);
       throw error;
     }
   },
@@ -159,8 +148,6 @@ uploadFile: async (token, file) => {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-    
-    console.log(`Uploading file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
     
     const response = await fetchWithRetry(`${API_URL}/rag/upload`, {
       method: 'POST',
@@ -177,14 +164,11 @@ uploadFile: async (token, file) => {
     
     // Check for expected response structure
     if (!result.filename) {
-      console.error('Unexpected upload response format:', result);
       throw new Error('Upload failed: Invalid server response');
     }
     
     return result;
   } catch (error) {
-    console.error('File upload error details:', error);
-    
     // Convert abort errors to more user-friendly messages
     if (error.name === 'AbortError') {
       throw new Error('Upload timed out. Please try again with a smaller file or check your connection.');
@@ -220,8 +204,6 @@ extractFileContent: async (token, file) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
-    console.log(`Extracting content from file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
-    
     const response = await fetchWithRetry(`${API_URL}/rag/extract-content`, {
       method: 'POST',
       headers: {
@@ -236,7 +218,6 @@ extractFileContent: async (token, file) => {
     const result = await response.json();
     return result;
   } catch (error) {
-    console.error('File content extraction error:', error);
     throw new Error(`Content extraction failed: ${error.message}`);
   }
 }

@@ -23,7 +23,6 @@ if (-not ($indexContent -match "preventFormSubmission")) {
         // Only prevent default for forms within our React app
         if (e.target.closest("#root")) {
           e.preventDefault();
-          console.log("Prevented form submission navigation");
         }
       });
     });

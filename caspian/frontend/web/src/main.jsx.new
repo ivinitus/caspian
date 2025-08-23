@@ -6,21 +6,18 @@ import App from './App.jsx'
 
 // Global error handler
 window.addEventListener('error', (event) => {
-  console.error('Global error caught:', event.error);
   // Prevent the error from causing page blanking
   event.preventDefault();
 });
 
 // Prevent unhandled promise rejections from breaking the app
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
   // Prevent the rejection from causing page blanking
   event.preventDefault();
 });
 
 // Prevent form submission navigation
 document.addEventListener('submit', function(e) {
-  console.log('Prevented form submission navigation');
   return preventFormNavigation(e);
 }, true);
 
