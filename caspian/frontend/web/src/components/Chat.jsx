@@ -50,7 +50,6 @@ export function Chat() {
   const handleSendMessage = (content) => {
     // Validate input - don't do anything if there's no content, already loading, or no connection
     if (!content || !content.trim() || loading || !conversationId || !authToken) {
-      console.log('Send prevented: empty content, loading, or no connection');
       return;
     }
 
@@ -71,11 +70,9 @@ export function Chat() {
       const sendMessageToAPI = async () => {
         try {
           // Save user message to conversation
-          console.log('Sending user message to conversation:', userMsg);
           await api.sendMessage(authToken, conversationId, userMsg.content, 'user');
           
           // Get response from LLM
-          console.log('Sending message to LLM API');
           const response = await api.getChatResponse(authToken, [...messages, userMsg]);
           
           // Check if response has the expected format

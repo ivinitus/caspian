@@ -96,7 +96,6 @@ export function AuthProvider({ children }) {
         if (authToken && conversationId) {
           // Check if token is expired
           if (isTokenExpired()) {
-            console.log("Token expired, refreshing session");
             setAuthStatus('expired');
             await refreshSession();
             return;

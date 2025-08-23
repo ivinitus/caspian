@@ -49,8 +49,7 @@ class MemoryManager:
     
     def _calculate_importance(self, message: dict) -> float:
         """Calculate importance score of a message"""
-        # TODO: Implement more sophisticated importance scoring
-        # Current simple heuristic based on message length
+        # Simple heuristic based on message length
         content = message.get("content", "")
         if not content:
             return 0.0
