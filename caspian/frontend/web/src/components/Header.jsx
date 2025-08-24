@@ -8,7 +8,7 @@ export function Header() {
       <div className="header-content">
         <div className="logo">
           <h1>Caspian</h1>
-          <span className="logo-subtitle">AI Assistant</span>
+          <span className="logo-subtitle">WEB</span>
         </div>
         
         <div className="header-actions">

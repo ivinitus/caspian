@@ -10,7 +10,7 @@ export function Chat() {
   const [messages, setMessages] = useState([
     { 
       role: 'assistant', 
-      content: 'Hello Sir, I am Caspian. How may I assist you today?',
+      content: 'Hello Sir',
       timestamp: new Date().toISOString()
     },
   ]);
