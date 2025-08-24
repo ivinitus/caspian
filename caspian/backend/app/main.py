@@ -74,4 +74,12 @@ async def startup_event():
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello Sir, I am Caspian. How may I assist you today?"}
+    return {"message": "Hello Sir"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
+@app.get("/api/health")
+def api_health_check():
+    return {"status": "API is healthy"}

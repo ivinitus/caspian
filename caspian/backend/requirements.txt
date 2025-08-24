@@ -19,3 +19,7 @@ nltk
 scikit-learn
 numpy
 scipy
+chardet
+PyPDF2
+python-docx
+python-dateutil
