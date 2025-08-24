@@ -41,6 +41,15 @@ app.include_router(reminders_router)
 async def startup_event():
     main_loop = asyncio.get_running_loop()
     await init_db()
+    
+    # Check if vector extension is available
+    try:
+        async with SessionLocal() as db:
+            await db.execute("SELECT '[1,2,3]'::vector")
+            print("Vector extension is available and working properly")
+    except Exception as e:
+        print(f"ERROR: Vector extension is not available: {e}")
+        print("Please make sure PostgreSQL vector extension is installed")
 
     # Start Discord bot only if token is set
     if settings.discord_token:
@@ -77,8 +86,13 @@ def read_root():
     return {"message": "Hello Sir"}
 
 @app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+async def health_check():
+    try:
+        async with SessionLocal() as db:
+            await db.execute("SELECT '[1,2,3]'::vector")
+        return {"status": "healthy", "vector_extension": "available"}
+    except Exception as e:
+        return {"status": "unhealthy", "vector_extension": "unavailable", "error": str(e)}
 
 @app.get("/api/health")
 def api_health_check():
