@@ -1,9 +1,18 @@
-name: Deploy to VM on Google Cloud Platform
+name: Deploy to VM
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, gama ]
   workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Type of deployment'
+        required: true
+        default: 'remote'
+        type: choice
+        options:
+        - remote
+        - local
 
 jobs:
   deploy:
@@ -13,51 +22,178 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Setup Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          fetch-depth: 0
       
-      - name: Deploy to VM instance
+      - name: Deploy to VM
         run: |
-          # Prepare deployment key
-          echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
-          chmod 600 ./deploy_key
+          # Determine if this is a local or remote deployment
+          DEPLOYMENT_TYPE="${{ github.event.inputs.deployment_type || 'remote' }}"
           
-          # Get VM external IP
-          VM_IP=$(gcloud compute instances describe caspian-server --zone=us-central1-a --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-          
-          # Copy project files to VM
-          rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
-            --exclude=".git/" \
-            --exclude="node_modules/" \
-            --exclude="__pycache__/" \
-            --exclude="*.pyc" \
-            --exclude=".venv/" \
-            . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
-          
-          # Execute deployment script on VM
-          ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_IP} << 'EOF'
-            cd ~/caspian
+          if [ "$DEPLOYMENT_TYPE" == "local" ]; then
+            echo "Performing local deployment..."
+            
+            # Create db-backups directory if it doesn't exist
+            mkdir -p ~/caspian/db-backups
+            
             # Create/update .env file with secrets
-            cat > .env << ENVEOF
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            ENVEOF
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+            echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
             
-            # Deploy with Docker Compose
-            docker-compose down
-            docker-compose build --no-cache
-            docker-compose up -d
+            # Make deploy.sh executable and run it
+            chmod +x ./deploy.sh
+            ./deploy.sh
             
-            # Run database migrations if needed
-            # docker-compose exec -T backend python -m app.scripts.setup_db
-          EOF
-          
-          # Clean up
-          rm ./deploy_key
+          else
+            echo "Performing remote deployment..."
+            
+            # Prepare deployment key
+            if [ -n "${{ secrets.VM_SSH_KEY_BASE64 }}" ]; then
+              echo "Using base64 encoded SSH key..."
+              echo "${{ secrets.VM_SSH_KEY_BASE64 }}" | base64 -d > ./deploy_key
+            else
+              echo "Using raw SSH key..."
+              echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
+            fi
+            chmod 600 ./deploy_key
+            
+            # Display key info for debugging (redacting content)
+            echo "SSH key info:"
+            file ./deploy_key
+            
+            # Check if key is passphrase protected
+            if grep -q "ENCRYPTED" ./deploy_key; then
+              echo "Key appears to be passphrase protected"
+              
+              # Check if a passphrase is provided
+              if [ -n "${{ secrets.SSH_KEY_PASSPHRASE }}" ]; then
+                echo "Using provided passphrase to decrypt key..."
+                # Create a temporary key without passphrase
+                ssh-keygen -p -P "${{ secrets.SSH_KEY_PASSPHRASE }}" -N "" -f ./deploy_key
+                echo "Key has been decrypted for use"
+              else
+                echo "WARNING: Key appears to be passphrase protected but no passphrase was provided."
+                echo "Please add SSH_KEY_PASSPHRASE as a repository secret or use a key without a passphrase."
+              fi
+            else
+              echo "Key does not appear to be passphrase protected"
+            fi
+            
+            # Check for potential issues with the key format
+            if grep -q "OPENSSH PRIVATE KEY" ./deploy_key; then
+              echo "Key appears to be in OpenSSH format, which is correct"
+            elif grep -q "BEGIN RSA PRIVATE KEY" ./deploy_key; then
+              echo "Key appears to be in PEM format, which is correct"
+            elif grep -q "BEGIN PRIVATE KEY" ./deploy_key; then
+              echo "Key appears to be in PKCS8 format, which is correct"
+            else
+              echo "Warning: Key format may not be recognized. Attempting to fix..."
+              # Try to convert key if necessary
+              cp ./deploy_key ./deploy_key.bak
+              ssh-keygen -p -N "" -m PEM -f ./deploy_key || echo "Key conversion failed, continuing with original key"
+            fi
+            
+            # Use the VM's IP address or domain
+            if [ -n "${{ secrets.VM_IP_ADDRESS }}" ]; then
+              # Directly use provided IP address
+              VM_HOST="${{ secrets.VM_IP_ADDRESS }}"
+              echo "Deploying to VM using provided IP: ${VM_HOST}"
+            elif [ -n "${{ secrets.VM_DOMAIN }}" ]; then
+              VM_HOST="${{ secrets.VM_DOMAIN }}"
+              echo "Deploying to VM using domain: ${VM_HOST}"
+              
+              # Test if the domain can be resolved
+              if ! ping -c 1 -W 5 ${VM_HOST} &> /dev/null; then
+                echo "Warning: Could not resolve hostname ${VM_HOST}, falling back to IP"
+                VM_HOST=$(curl -s https://api.ipify.org)
+                echo "Using IP address instead: ${VM_HOST}"
+              fi
+            else
+              # Get current IP using ipify public API
+              VM_HOST=$(curl -s https://api.ipify.org)
+              echo "Deploying to VM using detected IP address: ${VM_HOST}"
+            fi
+            
+            # Verify username
+            echo "Using username: ${{ secrets.VM_USER }}"
+            
+            # Create db-backups directory if it doesn't exist
+            echo "Testing SSH connection to ${VM_HOST}..."
+            
+            # Print public key for verification
+            echo "Public key derived from the private key:"
+            PUBLIC_KEY=$(ssh-keygen -y -f ./deploy_key)
+            echo "$PUBLIC_KEY"
+            
+            # Format public key for easy copying to authorized_keys
+            echo "Add this to your authorized_keys file:"
+            echo "$PUBLIC_KEY"
+            
+            # Check if SSH connection works
+            echo "Attempting SSH connection with verbose logging..."
+            if ssh -v -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${VM_HOST} "echo SSH connection successful"; then
+              echo "SSH connection established successfully."
+              
+              ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} "mkdir -p ~/caspian/db-backups"
+              
+              # Copy project files to VM
+              echo "Copying project files to VM..."
+              rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
+                --exclude=".git/" \
+                --exclude="node_modules/" \
+                --exclude="__pycache__/" \
+                --exclude="*.pyc" \
+                --exclude=".venv/" \
+                --exclude="caspian/frontend/web/node_modules/" \
+                --exclude="caspian/frontend/desktop/node_modules/" \
+                --exclude="caspian/frontend/mobile/node_modules/" \
+                . ${{ secrets.VM_USER }}@${VM_HOST}:~/caspian/
+              
+              # Execute deployment script on VM
+              echo "Running deployment script on VM..."
+              ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} 'cd ~/caspian && \
+                echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env && \
+                echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env && \
+                echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env && \
+                echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env && \
+                # Configure git with GitHub username and token for authentication
+                git config --local user.name "ivinitus" && \
+                git config --local user.email "${{ secrets.GIT_EMAIL || 'ivinitus@users.noreply.github.com' }}" && \
+                git config --local credential.helper "store --file=.git-credentials" && \
+                echo "https://ivinitus:${{ secrets.GIT_TOKEN }}@github.com" > .git-credentials && \
+                chmod 600 .git-credentials && \
+                # Force reset any local changes before pulling
+                echo "Resetting any local changes..." && \
+                git reset --hard && \
+                git clean -fd && \
+                # Make deploy script executable and run it
+                chmod +x ./deploy.sh && \
+                ./deploy.sh && \
+                # Clean up credentials after deployment
+                rm -f .git-credentials && \
+                git config --local --unset credential.helper'
+            else
+              echo "Failed to establish SSH connection to ${VM_HOST}"
+              echo "Trying to get more information about the host..."
+              ping -c 3 ${VM_HOST} || true
+              nslookup ${VM_HOST} || true
+              traceroute ${VM_HOST} || true
+              exit 1
+            fi
+            
+            # Clean up
+            rm ./deploy_key
+          fi
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "Deployment completed successfully!"
+          else
+            echo "Deployment failed!"
+          fi
+          # You can add additional notification methods here
+          # Such as sending an email, Slack message, or Discord notification
