@@ -50,8 +50,32 @@ jobs:
             echo "Performing remote deployment..."
             
             # Prepare deployment key
-            echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
+            if [ -n "${{ secrets.VM_SSH_KEY_BASE64 }}" ]; then
+              echo "Using base64 encoded SSH key..."
+              echo "${{ secrets.VM_SSH_KEY_BASE64 }}" | base64 -d > ./deploy_key
+            else
+              echo "Using raw SSH key..."
+              echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
+            fi
             chmod 600 ./deploy_key
+            
+            # Display key info for debugging (redacting content)
+            echo "SSH key info:"
+            file ./deploy_key
+            
+            # Check for potential issues with the key format
+            if grep -q "OPENSSH PRIVATE KEY" ./deploy_key; then
+              echo "Key appears to be in OpenSSH format, which is correct"
+            elif grep -q "BEGIN RSA PRIVATE KEY" ./deploy_key; then
+              echo "Key appears to be in PEM format, which is correct"
+            elif grep -q "BEGIN PRIVATE KEY" ./deploy_key; then
+              echo "Key appears to be in PKCS8 format, which is correct"
+            else
+              echo "Warning: Key format may not be recognized. Attempting to fix..."
+              # Try to convert key if necessary
+              cp ./deploy_key ./deploy_key.bak
+              ssh-keygen -p -N "" -m PEM -f ./deploy_key || echo "Key conversion failed, continuing with original key"
+            fi
             
             # Use the VM's IP address or domain
             if [ -n "${{ secrets.VM_IP_ADDRESS }}" ]; then
@@ -78,7 +102,8 @@ jobs:
             echo "Testing SSH connection to ${VM_HOST}..."
             
             # Check if SSH connection works
-            if ssh -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${VM_HOST} "echo SSH connection successful"; then
+            echo "Attempting SSH connection with verbose logging..."
+            if ssh -v -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${VM_HOST} "echo SSH connection successful"; then
               echo "SSH connection established successfully."
               
               ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} "mkdir -p ~/caspian/db-backups"
