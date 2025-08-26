@@ -31,7 +31,6 @@ class ConversationRead(BaseModel):
     messages: list[MessageRead] = []
 
 
-
 # Single-user mode: always use conversation_id=1
 @router.post("/", response_model=ConversationRead)
 async def start_conversation():
@@ -64,6 +63,16 @@ async def get_messages(conversation_id: int):
 @router.post("/{conversation_id}/messages", response_model=MessageRead)
 async def add_message(conversation_id: int, msg: MessageCreate):
     async with SessionLocal() as db:
+        # First check if the conversation exists
+        conv = await db.get(Conversation, conversation_id)
+        
+        # If not, create it (similar to your start_conversation endpoint)
+        if not conv:
+            conv = Conversation(id=conversation_id)
+            db.add(conv)
+            await db.flush()  # Flush to DB but don't commit yet
+        
+        # Now add the message
         message = Message(
             conversation_id=conversation_id,
             content=msg.content,
