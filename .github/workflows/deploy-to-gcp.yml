@@ -158,7 +158,18 @@ jobs:
                 echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env && \
                 echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env && \
                 echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env && \
-                chmod +x ./deploy.sh && ./deploy.sh'
+                # Configure git with GitHub username and token for authentication
+                git config --local user.name "ivinitus" && \
+                git config --local user.email "${{ secrets.GIT_EMAIL || 'ivinitus@users.noreply.github.com' }}" && \
+                git config --local credential.helper "store --file=.git-credentials" && \
+                echo "https://ivinitus:${{ secrets.GIT_TOKEN }}@github.com" > .git-credentials && \
+                chmod 600 .git-credentials && \
+                # Make deploy script executable and run it
+                chmod +x ./deploy.sh && \
+                ./deploy.sh && \
+                # Clean up credentials after deployment
+                rm -f .git-credentials && \
+                git config --local --unset credential.helper'
             else
               echo "Failed to establish SSH connection to ${VM_HOST}"
               echo "Trying to get more information about the host..."
