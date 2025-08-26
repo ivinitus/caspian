@@ -98,8 +98,20 @@ jobs:
               echo "Deploying to VM using detected IP address: ${VM_HOST}"
             fi
             
+            # Verify username
+            echo "Using username: ${{ secrets.VM_USER }}"
+            
             # Create db-backups directory if it doesn't exist
             echo "Testing SSH connection to ${VM_HOST}..."
+            
+            # Print public key for verification
+            echo "Public key derived from the private key:"
+            PUBLIC_KEY=$(ssh-keygen -y -f ./deploy_key)
+            echo "$PUBLIC_KEY"
+            
+            # Format public key for easy copying to authorized_keys
+            echo "Add this to your authorized_keys file:"
+            echo "$PUBLIC_KEY"
             
             # Check if SSH connection works
             echo "Attempting SSH connection with verbose logging..."
