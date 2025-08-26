@@ -31,38 +31,92 @@ jobs:
           echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
           chmod 600 ./deploy_key
           
+          # Display key info for debugging
+          echo "SSH key info:"
+          file ./deploy_key
+          cat -A ./deploy_key | head -1
+          
+          # Try to fix key format if needed
+          echo "Checking and fixing key format if necessary..."
+          if grep -q "OPENSSH PRIVATE KEY" ./deploy_key; then
+            echo "Key appears to be in OpenSSH format"
+          elif grep -q "BEGIN RSA PRIVATE KEY" ./deploy_key; then
+            echo "Key appears to be in PEM RSA format"
+          elif grep -q "BEGIN PRIVATE KEY" ./deploy_key; then
+            echo "Key appears to be in PKCS8 format"
+          else
+            echo "Key format not recognized. Attempting to convert..."
+            cp ./deploy_key ./deploy_key.bak
+            
+            # Remove any unexpected characters
+            tr -cd '\11\12\15\40-\176' < ./deploy_key.bak > ./deploy_key
+            chmod 600 ./deploy_key
+            
+            # If there's still an issue, try converting to PEM format
+            if ! ssh-keygen -y -f ./deploy_key &>/dev/null; then
+              echo "Attempting to convert key to PEM format..."
+              ssh-keygen -p -N "" -m PEM -f ./deploy_key
+            fi
+          fi
+          
+          # Extract and display the public key for verification
+          echo "Public key derived from the private key:"
+          ssh-keygen -y -f ./deploy_key || echo "Failed to extract public key - the key might be in an unsupported format or passphrase protected"
+          
           # Use the VM's IP address from secrets
           VM_IP="${{ secrets.VM_IP_ADDRESS }}"
           echo "Deploying to VM at IP: ${VM_IP}"
+          echo "Using username: ${{ secrets.VM_USER }}"
           
-          # Copy project files to VM
-          rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
-            --exclude=".git/" \
-            --exclude="node_modules/" \
-            --exclude="__pycache__/" \
-            --exclude="*.pyc" \
-            --exclude=".venv/" \
-            . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
+          # Test SSH connection before rsync
+          echo "Testing SSH connection..."
+          if ssh -v -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} "echo SSH connection successful"; then
+            echo "SSH connection established successfully. Proceeding with deployment."
+            
+            # Copy project files to VM
+            echo "Copying project files to VM..."
+            rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no -o PubkeyAcceptedKeyTypes=+ssh-rsa" \
+              --exclude=".git/" \
+              --exclude="node_modules/" \
+              --exclude="__pycache__/" \
+              --exclude="*.pyc" \
+              --exclude=".venv/" \
+              . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
           
-          # Execute deployment script on VM
-          ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_IP} << 'EOF'
-            cd ~/caspian
-            # Create/update .env file with secrets
-            cat > .env << ENVEOF
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            ENVEOF
             
-            # Deploy with Docker Compose
-            docker-compose down
-            docker-compose build --no-cache
-            docker-compose up -d
+            # Execute deployment script on VM
+            echo "Running deployment script on VM..."
+            ssh -i ./deploy_key -o StrictHostKeyChecking=no -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} << 'EOF'
+              cd ~/caspian
+              # Create/update .env file with secrets
+              cat > .env << ENVEOF
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+              SECRET_KEY=${{ secrets.SECRET_KEY }}
+              DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
+              GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+              ENVEOF
+              
+              # Deploy with Docker Compose
+              docker-compose down
+              docker-compose build --no-cache
+              docker-compose up -d
+              
+              # Run database migrations if needed
+              # docker-compose exec -T backend python -m app.scripts.setup_db
+            EOF
+          else
+            echo "Failed to establish SSH connection to ${VM_IP}"
+            echo "Please ensure the following:"
+            echo "1. The SSH key provided in VM_SSH_KEY secret is correct"
+            echo "2. The public key derived from this private key is added to authorized_keys on the VM"
+            echo "3. The VM_USER secret contains the correct username for the VM"
+            echo "4. The VM_IP_ADDRESS secret contains the correct IP address"
             
-            # Run database migrations if needed
-            # docker-compose exec -T backend python -m app.scripts.setup_db
-          EOF
+            echo "Trying to get more information about the host..."
+            ping -c 3 ${VM_IP} || true
+            
+            exit 1
+          fi
           
           # Clean up
           rm ./deploy_key
