@@ -63,6 +63,24 @@ jobs:
             echo "SSH key info:"
             file ./deploy_key
             
+            # Check if key is passphrase protected
+            if grep -q "ENCRYPTED" ./deploy_key; then
+              echo "Key appears to be passphrase protected"
+              
+              # Check if a passphrase is provided
+              if [ -n "${{ secrets.SSH_KEY_PASSPHRASE }}" ]; then
+                echo "Using provided passphrase to decrypt key..."
+                # Create a temporary key without passphrase
+                ssh-keygen -p -P "${{ secrets.SSH_KEY_PASSPHRASE }}" -N "" -f ./deploy_key
+                echo "Key has been decrypted for use"
+              else
+                echo "WARNING: Key appears to be passphrase protected but no passphrase was provided."
+                echo "Please add SSH_KEY_PASSPHRASE as a repository secret or use a key without a passphrase."
+              fi
+            else
+              echo "Key does not appear to be passphrase protected"
+            fi
+            
             # Check for potential issues with the key format
             if grep -q "OPENSSH PRIVATE KEY" ./deploy_key; then
               echo "Key appears to be in OpenSSH format, which is correct"
