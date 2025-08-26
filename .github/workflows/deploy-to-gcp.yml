@@ -104,7 +104,7 @@ jobs:
             echo 'Creating database backup...' && \
             docker-compose exec -T postgres pg_dump -U caspian_user caspian_db > ./db-backups/backup_\$(date +%Y%m%d_%H%M%S).sql && \
             echo 'Running database migrations...' && \
-            docker-compose exec -T backend python -m app.scripts.setup_db"
+            docker-compose exec -T backend bash -c 'cd /app && python -m scripts.setup_db'"
           else
             echo "Failed to establish SSH connection to ${VM_IP}"
             echo "Please ensure the following:"
