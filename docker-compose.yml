@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     restart: always
     environment:
       POSTGRES_DB: caspian_db
@@ -10,6 +10,13 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-vector.sql:/docker-entrypoint-initdb.d/init-vector.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caspian_user -d caspian_db && psql -U caspian_user -d caspian_db -c \"SELECT 1 FROM pg_extension WHERE extname = 'vector'\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   backend:
     build: ./caspian/backend
@@ -19,7 +26,8 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://caspian_user:${DB_PASSWORD}@postgres:5432/caspian_db
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -45,4 +53,5 @@ services:
 
 volumes:
   postgres_data:
+
 
