@@ -37,12 +37,10 @@ jobs:
             mkdir -p ~/caspian/db-backups
             
             # Create/update .env file with secrets
-            cat > .env << 'ENVEOF'
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            ENVEOF
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+            echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
             
             # Make deploy.sh executable and run it
             chmod +x ./deploy.sh
@@ -80,22 +78,13 @@ jobs:
               --exclude="caspian/frontend/mobile/node_modules/" \
               . ${{ secrets.VM_USER }}@${VM_HOST}:~/caspian/
             
-            # Make deploy.sh executable and execute deployment script on VM
-            ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} << 'EOF'
-              cd ~/caspian
-              
-              # Create/update .env file with secrets
-              cat > .env << 'ENVEOF'
-              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-              SECRET_KEY=${{ secrets.SECRET_KEY }}
-              DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-              GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-              ENVEOF
-              
-              # Make deploy.sh executable and run it
-              chmod +x ./deploy.sh
-              ./deploy.sh
-            EOF
+            # Execute deployment script on VM
+            ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} 'cd ~/caspian && \
+              echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env && \
+              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env && \
+              echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env && \
+              echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env && \
+              chmod +x ./deploy.sh && ./deploy.sh'
             
             # Clean up
             rm ./deploy_key
