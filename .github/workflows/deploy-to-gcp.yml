@@ -13,6 +13,10 @@ on:
         options:
         - remote
         - local
+      full_rebuild:
+        description: 'Force full rebuild of all containers'
+        type: boolean
+        default: false
 
 jobs:
   deploy:
@@ -92,13 +96,59 @@ jobs:
             echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
             echo 'GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}' >> .env && \
             mkdir -p db-backups && \
-            echo 'Cleaning up Docker system to free disk space...' && \
-            docker system prune -af --volumes && \
-            docker builder prune -af && \
-            df -h && \
+            
+            # Clean up only if disk space is low (more than 80% used)
+            DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//') && \
+            if [ \"\$DISK_USAGE\" -gt 80 ]; then \
+              echo 'Disk usage is high ('\$DISK_USAGE'%), cleaning up Docker system to free disk space...' && \
+              docker system prune -af --volumes && \
+              docker builder prune -af && \
+              df -h; \
+            else \
+              echo 'Disk usage is acceptable ('\$DISK_USAGE'%), skipping cleanup'; \
+            fi && \
+            
+            # Stop running containers
             docker-compose down && \
-            docker-compose build --no-cache && \
+            
+            # Smart rebuilding logic
+            FULL_REBUILD='${{ github.event.inputs.full_rebuild || 'false' }}' && \
+            if [ \"\$FULL_REBUILD\" = \"true\" ]; then \
+              echo \"Performing full rebuild as requested...\" && \
+              docker-compose build --no-cache; \
+            else \
+              echo \"Performing smart incremental build...\" && \
+              
+              # Try to pull latest images from registry (if they exist)
+              docker-compose pull || true && \
+              
+              # Check which components have changed
+              CHANGED=false && \
+              
+              if [ -n \"\$(find ./caspian/backend -type f -newer .last_deploy 2>/dev/null)\" ]; then \
+                echo \"Backend changes detected, rebuilding backend...\" && \
+                docker-compose build backend && \
+                CHANGED=true; \
+              fi && \
+              
+              if [ -n \"\$(find ./caspian/frontend -type f -newer .last_deploy 2>/dev/null)\" ]; then \
+                echo \"Frontend changes detected, rebuilding frontend...\" && \
+                docker-compose build frontend && \
+                CHANGED=true; \
+              fi && \
+              
+              if [ \"\$CHANGED\" = \"false\" ]; then \
+                echo \"No significant changes detected, using cached images...\" && \
+                docker-compose build; \
+              fi; \
+            fi && \
+            
+            # Update last deploy timestamp
+            touch .last_deploy && \
+            
+            # Start services
             docker-compose up -d && \
+            
             echo 'Waiting for database to be ready...' && \
             sleep 30 && \
             echo 'Creating database backup...' && \
