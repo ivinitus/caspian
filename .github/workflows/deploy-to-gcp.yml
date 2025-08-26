@@ -53,38 +53,65 @@ jobs:
             echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
             chmod 600 ./deploy_key
             
-            # Use the VM's domain name or IP address
-            if [ -n "${{ secrets.VM_DOMAIN }}" ]; then
+            # Use the VM's IP address or domain
+            if [ -n "${{ secrets.VM_IP_ADDRESS }}" ]; then
+              # Directly use provided IP address
+              VM_HOST="${{ secrets.VM_IP_ADDRESS }}"
+              echo "Deploying to VM using provided IP: ${VM_HOST}"
+            elif [ -n "${{ secrets.VM_DOMAIN }}" ]; then
               VM_HOST="${{ secrets.VM_DOMAIN }}"
               echo "Deploying to VM using domain: ${VM_HOST}"
+              
+              # Test if the domain can be resolved
+              if ! ping -c 1 -W 5 ${VM_HOST} &> /dev/null; then
+                echo "Warning: Could not resolve hostname ${VM_HOST}, falling back to IP"
+                VM_HOST=$(curl -s https://api.ipify.org)
+                echo "Using IP address instead: ${VM_HOST}"
+              fi
             else
               # Get current IP using ipify public API
               VM_HOST=$(curl -s https://api.ipify.org)
-              echo "Deploying to VM using IP address: ${VM_HOST}"
+              echo "Deploying to VM using detected IP address: ${VM_HOST}"
             fi
             
             # Create db-backups directory if it doesn't exist
-            ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} "mkdir -p ~/caspian/db-backups"
+            echo "Testing SSH connection to ${VM_HOST}..."
             
-            # Copy project files to VM
-            rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
-              --exclude=".git/" \
-              --exclude="node_modules/" \
-              --exclude="__pycache__/" \
-              --exclude="*.pyc" \
-              --exclude=".venv/" \
-              --exclude="caspian/frontend/web/node_modules/" \
-              --exclude="caspian/frontend/desktop/node_modules/" \
-              --exclude="caspian/frontend/mobile/node_modules/" \
-              . ${{ secrets.VM_USER }}@${VM_HOST}:~/caspian/
-            
-            # Execute deployment script on VM
-            ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} 'cd ~/caspian && \
-              echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env && \
-              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env && \
-              echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env && \
-              echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env && \
-              chmod +x ./deploy.sh && ./deploy.sh'
+            # Check if SSH connection works
+            if ssh -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${VM_HOST} "echo SSH connection successful"; then
+              echo "SSH connection established successfully."
+              
+              ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} "mkdir -p ~/caspian/db-backups"
+              
+              # Copy project files to VM
+              echo "Copying project files to VM..."
+              rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
+                --exclude=".git/" \
+                --exclude="node_modules/" \
+                --exclude="__pycache__/" \
+                --exclude="*.pyc" \
+                --exclude=".venv/" \
+                --exclude="caspian/frontend/web/node_modules/" \
+                --exclude="caspian/frontend/desktop/node_modules/" \
+                --exclude="caspian/frontend/mobile/node_modules/" \
+                . ${{ secrets.VM_USER }}@${VM_HOST}:~/caspian/
+              
+              # Execute deployment script on VM
+              echo "Running deployment script on VM..."
+              ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} 'cd ~/caspian && \
+                echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env && \
+                echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env && \
+                echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env && \
+                echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env && \
+                chmod +x ./deploy.sh && ./deploy.sh'
+            else
+              echo "Failed to establish SSH connection to ${VM_HOST}"
+              echo "Trying to get more information about the host..."
+              ping -c 3 ${VM_HOST} || true
+              nslookup ${VM_HOST} || true
+              traceroute ${VM_HOST} || true
+              exit 1
+            fi
             
             # Clean up
             rm ./deploy_key
