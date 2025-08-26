@@ -92,6 +92,10 @@ jobs:
             echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
             echo 'GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}' >> .env && \
             mkdir -p db-backups && \
+            echo 'Cleaning up Docker system to free disk space...' && \
+            docker system prune -af --volumes && \
+            docker builder prune -af && \
+            df -h && \
             docker-compose down && \
             docker-compose build --no-cache && \
             docker-compose up -d && \
