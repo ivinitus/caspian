@@ -17,7 +17,7 @@ docker-compose up -d
 # Create a database backup before migrations
 echo "Creating database backup..."
 BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).sql"
-docker-compose exec -T db pg_dump -U caspian_user caspian_db > ./db-backups/$BACKUP_FILE
+docker-compose exec -T postgres pg_dump -U caspian_user caspian_db > ./db-backups/$BACKUP_FILE
 
 # Run database migrations if needed
 echo "Running database migrations..."
