@@ -1,9 +1,18 @@
-name: Deploy to VM on Google Cloud Platform
+name: Deploy to VM
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, gama ]
   workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Type of deployment'
+        required: true
+        default: 'remote'
+        type: choice
+        options:
+        - remote
+        - local
 
 jobs:
   deploy:
@@ -13,35 +22,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Setup Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          fetch-depth: 0
       
-      - name: Deploy to VM instance
+      - name: Deploy to VM
         run: |
-          # Prepare deployment key
-          echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
-          chmod 600 ./deploy_key
+          # Determine if this is a local or remote deployment
+          DEPLOYMENT_TYPE="${{ github.event.inputs.deployment_type || 'remote' }}"
           
-          # Get VM external IP
-          VM_IP=$(gcloud compute instances describe caspian-server --zone=us-central1-a --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-          
-          # Copy project files to VM
-          rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
-            --exclude=".git/" \
-            --exclude="node_modules/" \
-            --exclude="__pycache__/" \
-            --exclude="*.pyc" \
-            --exclude=".venv/" \
-            . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
-          
-          # Execute deployment script on VM
-          ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_IP} << 'EOF'
-            cd ~/caspian
+          if [ "$DEPLOYMENT_TYPE" == "local" ]; then
+            echo "Performing local deployment..."
+            
+            # Create db-backups directory if it doesn't exist
+            mkdir -p ~/caspian/db-backups
+            
             # Create/update .env file with secrets
             cat > .env << ENVEOF
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -50,14 +44,81 @@ jobs:
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             ENVEOF
             
-            # Deploy with Docker Compose
-            docker-compose down
-            docker-compose build --no-cache
-            docker-compose up -d
+            # Make deploy.sh executable and run it
+            chmod +x ./deploy.sh
+            ./deploy.sh
             
-            # Run database migrations if needed
-            # docker-compose exec -T backend python -m app.scripts.setup_db
-          EOF
+          else
+            echo "Performing remote deployment..."
+            
+            # Prepare deployment key
+            echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
+            chmod 600 ./deploy_key
+            
+            # Use the VM's domain name or IP address
+            if [ -n "${{ secrets.VM_DOMAIN }}" ]; then
+              VM_HOST="${{ secrets.VM_DOMAIN }}"
+              echo "Deploying to VM using domain: ${VM_HOST}"
+            else
+              # Get current IP using ipify public API
+              VM_HOST=$(curl -s https://api.ipify.org)
+              echo "Deploying to VM using IP address: ${VM_HOST}"
+            fi
+            
+            # Create db-backups directory if it doesn't exist
+            ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} "mkdir -p ~/caspian/db-backups"
+            
+            # Copy project files to VM
+            rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no" \
+              --exclude=".git/" \
+              --exclude="node_modules/" \
+              --exclude="__pycache__/" \
+              --exclude="*.pyc" \
+              --exclude=".venv/" \
+              --exclude="caspian/frontend/web/node_modules/" \
+              --exclude="caspian/frontend/desktop/node_modules/" \
+              --exclude="caspian/frontend/mobile/node_modules/" \
+              . ${{ secrets.VM_USER }}@${VM_HOST}:~/caspian/
+            
+            # Make deploy.sh executable and execute deployment script on VM
+            ssh -i ./deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${VM_HOST} << 'EOF'
+              cd ~/caspian
+              
+              # Create/update .env file with secrets
+              cat > .env << ENVEOF
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+              SECRET_KEY=${{ secrets.SECRET_KEY }}
+              DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
+              GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+              ENVEOF
+              
+              # Make deploy.sh executable and run it
+              chmod +x ./deploy.sh
+              ./deploy.sh
+            EOF
+            
+            # Clean up
+            rm ./deploy_key
+          fi
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "Deployment completed successfully!"
+          else
+            echo "Deployment failed!"
+          fi
+          # You can add additional notification methods here
+          # Such as sending an email, Slack message, or Discord notification
           
-          # Clean up
-          rm ./deploy_key
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "Deployment completed successfully!"
+          else
+            echo "Deployment failed!"
+          fi
+          # You can add additional notification methods here
+          # Such as sending an email, Slack message, or Discord notification
