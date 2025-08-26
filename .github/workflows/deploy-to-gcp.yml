@@ -37,7 +37,7 @@ jobs:
             mkdir -p ~/caspian/db-backups
             
             # Create/update .env file with secrets
-            cat > .env << ENVEOF
+            cat > .env << 'ENVEOF'
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
@@ -85,7 +85,7 @@ jobs:
               cd ~/caspian
               
               # Create/update .env file with secrets
-              cat > .env << ENVEOF
+              cat > .env << 'ENVEOF'
               DB_PASSWORD=${{ secrets.DB_PASSWORD }}
               SECRET_KEY=${{ secrets.SECRET_KEY }}
               DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
@@ -101,17 +101,6 @@ jobs:
             rm ./deploy_key
           fi
       
-      - name: Notify deployment status
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "Deployment completed successfully!"
-          else
-            echo "Deployment failed!"
-          fi
-          # You can add additional notification methods here
-          # Such as sending an email, Slack message, or Discord notification
-          
       - name: Notify deployment status
         if: always()
         run: |
