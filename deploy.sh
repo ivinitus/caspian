@@ -32,3 +32,7 @@ echo "Backup created at ./db-backups/$BACKUP_FILE"
 
 # Optional: Send notification about successful deployment
 # curl -X POST -H "Content-Type: application/json" -d '{"text":"Caspian deployment successful!"}' YOUR_WEBHOOK_URL
+curl -X POST -H "Content-Type: application/json" \
+-d '{"Content":" @vinitus Caspian deployment successful!"}' \
+https://hooks.chime.aws/incomingwebhooks/67239532-c7db-418c-a5dc-a9c7c1a29f93?token=REMOVED
+
