@@ -34,14 +34,13 @@ class CaspianBot(discord.Client):
         Detect if a message is trying to create a reminder using natural language.
         Returns a tuple of (is_reminder_intent, confidence_score)
         """
-        # Import the NL parser
         from app.core.nl_reminder_parser import NaturalLanguageReminderParser
-        
+
         # Common reminder request patterns
         reminder_phrases = [
             "remind me",
             "set a reminder",
-            "create a reminder", 
+            "create a reminder",
             "don't forget",
             "make sure to",
             "remind me to",
@@ -53,75 +52,57 @@ class CaspianBot(discord.Client):
             "schedule",
             "remember that",
         ]
-        
         time_phrases = [
             "today", "tomorrow", "next week", "next month",
             "in an hour", "in a minute", "in a day",
             "at", "on", "this evening", "this morning",
             "this afternoon", "tonight", "am", "pm",
             "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-            "january", "february", "march", "april", "may", "june", "july", 
+            "january", "february", "march", "april", "may", "june", "july",
             "august", "september", "october", "november", "december",
             "1st", "2nd", "3rd", "4th", "5th", "10th", "15th", "30th",
             ":00", ":15", ":30", ":45", "o'clock"
         ]
-        
         lower_text = message_text.lower()
-        
-        # Check for reminder phrases
         has_reminder_phrase = any(phrase in lower_text for phrase in reminder_phrases)
-        
-        # Check for time references
         has_time_reference = any(phrase in lower_text for phrase in time_phrases)
-        
-        # If we have a natural language parser, try to parse the message
+
+        # Try strict parser first
         try:
             parser = NaturalLanguageReminderParser()
             content, remind_at, recurrence, _ = parser.parse(message_text)
-            
-            # If we can extract both content and a time, it's likely a reminder
             if content and remind_at:
                 return True, 0.9
         except Exception:
-            # If parsing fails, fall back to the simpler heuristic check
             pass
-        
-        # If both reminder phrases and time references are present, it's likely a reminder request
+
+        # Only return True if BOTH a reminder phrase and a time reference are present
         if has_reminder_phrase and has_time_reference:
-            return True, 0.9
-        elif has_reminder_phrase:
-            return True, 0.6
-        elif has_time_reference and ("remind" in lower_text or "forget" in lower_text):
-            return True, 0.7
-        
-        # If all else fails, use LLM to check if this is a reminder request
+            return True, 0.8
+
+        # Otherwise, use LLM only if both are present or if LLM is highly confident
         try:
             from app.core.llm import ask_llm
             prompt = f"""
             Analyze this message and determine if it's a reminder request. 
             Message: "{message_text}"
-            
             Respond with a JSON object with these properties:
             - "is_reminder": boolean (true/false)
             - "confidence": float between 0 and 1
-            
             Example: {{"is_reminder": true, "confidence": 0.8}}
             """
             messages_for_llm = [{"role": "user", "content": prompt}]
             response_text = await ask_llm(messages_for_llm)
-            
-            # Extract JSON from response
-            import re
-            import json
+            import re, json
             json_match = re.search(r'({.*})', response_text.replace('\n', ' '), re.DOTALL)
             if json_match:
                 json_response_str = json_match.group(1)
                 llm_analysis = json.loads(json_response_str)
-                if llm_analysis.get("is_reminder"):
-                    return True, llm_analysis.get("confidence", 0.7)
+                if llm_analysis.get("is_reminder") and llm_analysis.get("confidence", 0) > 0.85:
+                    return True, llm_analysis.get("confidence", 0.85)
         except Exception as e:
             print(f"LLM reminder intent detection error: {e}")
-        
+
         return False, 0.0
     
     async def on_message(self, message):
