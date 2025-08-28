@@ -38,175 +38,151 @@ export function FileUpload() {
       return 'File is too large. Maximum size is 10MB.';
     }
     
-    // Check file type - be more permissive with unknown types but warn the user
-    if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
-      console.warn(`File type ${file.type} not in allowed list. Attempting to process anyway.`);
-    }
-    
-    return null;
-  }, []);
+  // ...existing code...
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-    
-    const validationError = validateFile(selectedFile);
-    if (validationError) {
-      setError(validationError);
-      setShowMessage(true);
-      setTimeout(() => setShowMessage(false), 5000);
-      return;
-    }
-    
-    setFile(selectedFile);
-    setMessage('');
-    setError('');
-  };
+      const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        if (!selectedFile) return;
+        const validationError = validateFile(selectedFile);
+        if (validationError) {
+          setError(validationError);
+          setShowMessage(true);
+          setTimeout(() => setShowMessage(false), 5000);
+          return;
+        }
+        setFile(selectedFile);
+        setMessage('');
+        setError('');
+      };
 
-  const clearFile = () => {
-    setFile(null);
-    setError('');
-    setMessage('');
-    setExtractedContent(null);
-  };
+      const clearFile = () => {
+        setFile(null);
+        setError('');
+        setMessage('');
+        setExtractedContent(null);
+      };
 
-  const handleExtractContent = async (e) => {
-    if (e) {
-      preventFormNavigation(e);
-    }
-    
-    if (!file || !authToken) return;
-    
-    setExtracting(true);
-    setError('');
-    setExtractedContent(null);
-    
-    try {
-      const result = await api.extractFileContent(authToken, file);
-      setExtractedContent(result);
-      console.log('Extracted content:', result);
-    } catch (error) {
-      console.error('Content extraction error:', error);
-      setError(`Failed to extract content: ${error.message}`);
-      setShowMessage(true);
-    } finally {
-      setExtracting(false);
-    }
-  };
+      const handleExtractContent = async (e) => {
+        if (e) {
+          preventFormNavigation(e);
+        }
+        if (!file || !authToken) return;
+        setExtracting(true);
+        setError('');
+        setExtractedContent(null);
+        try {
+          const result = await api.extractFileContent(authToken, file);
+          setExtractedContent(result);
+        } catch (error) {
+          setError(`Failed to extract content: ${error.message}`);
+          setShowMessage(true);
+        } finally {
+          setExtracting(false);
+        }
+      };
 
-  const handleUpload = async (e) => {
-    if (e) {
-      preventFormNavigation(e);
-    }
-    
-    if (!file || !authToken) return;
-    
-    setUploading(true);
-    setError('');
-    
-    try {
-      // Add a warning message for potentially problematic files
-      if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
-        setMessage(`Warning: File type ${file.type || 'unknown'} may not be fully supported. Attempting to process...`);
-        setShowMessage(true);
-      }
-      
-      const result = await api.uploadFile(authToken, file);
-      setMessage(`Successfully uploaded ${result.filename}`);
-      setShowMessage(true);
-      setTimeout(() => setShowMessage(false), 5000);
-      setFile(null);
-    } catch (error) {
-      console.error('File upload error:', error);
-      
-      // Handle specific encoding errors
-      if (error.message.includes('codec') || error.message.includes('decode') || error.message.includes('encoding')) {
-        setError('File encoding not supported. Please convert to UTF-8 or try a different file.');
-      } else if (error.message.includes('Internal Server Error')) {
-        setError('Server error processing file. The file format may not be supported.');
-      } else {
-        setError(error.message);
-      }
-      
-      setShowMessage(true);
-    } finally {
-      setUploading(false);
-    }
-  };
+      const handleUpload = async (e) => {
+        if (e) {
+          preventFormNavigation(e);
+        }
+        if (!file || !authToken) return;
+        setUploading(true);
+        setError('');
+        try {
+          if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
+            setMessage(`Warning: File type ${file.type || 'unknown'} may not be fully supported. Attempting to process...`);
+            setShowMessage(true);
+          }
+          const result = await api.uploadFile(authToken, file);
+          setMessage(`Successfully uploaded ${result.filename}`);
+          setShowMessage(true);
+          setTimeout(() => setShowMessage(false), 5000);
+          setFile(null);
+        } catch (error) {
+          if (error.message.includes('codec') || error.message.includes('decode') || error.message.includes('encoding')) {
+            setError('File encoding not supported. Please convert to UTF-8 or try a different file.');
+          } else if (error.message.includes('Internal Server Error')) {
+            setError('Server error processing file. The file format may not be supported.');
+          } else {
+            setError(error.message);
+          }
+          setShowMessage(true);
+        } finally {
+          setUploading(false);
+        }
+      };
 
-  return (
-    <div className="file-upload">
-      <div className="file-input-container">
-        <input 
-          id="file-upload" 
-          type="file" 
-          onChange={handleFileChange} 
-          className="file-input"
-          accept=".pdf,.txt,.md,.doc,.docx,.csv"
-        />
-        
-        {file ? (
-          <div className="selected-file">
-            <FiFile className="file-icon" />
-            <span className="file-name">{file.name}</span>
-            <button 
-              type="button" 
-              className="clear-file" 
-              onClick={clearFile}
-              aria-label="Clear selected file"
+      return (
+        <div className="file-upload">
+          <div className="file-input-container">
+            <input
+              id="file-upload"
+              type="file"
+              onChange={handleFileChange}
+              className="file-input"
+              accept=".pdf,.txt,.md,.doc,.docx,.csv"
+              aria-label="Choose file to upload"
+            />
+            {file ? (
+              <div className="selected-file">
+                <FiFile className="file-icon" />
+                <span className="file-name">{file.name}</span>
+                <button
+                  type="button"
+                  className="clear-file"
+                  onClick={clearFile}
+                  aria-label="Clear selected file"
+                >
+                  <FiX />
+                </button>
+              </div>
+            ) : (
+              <label htmlFor="file-upload" className="file-label">
+                <FiFile />
+                Choose file
+              </label>
+            )}
+          </div>
+          <div className="file-upload-actions">
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={!file || uploading || extracting || !authToken || !!error}
+              className="upload-button"
+              aria-busy={uploading}
             >
-              <FiX />
+              {uploading ? 'Uploading...' : <><FiUpload /> Upload</>}
+            </button>
+            <button
+              type="button"
+              onClick={handleExtractContent}
+              disabled={!file || uploading || extracting || !authToken || !!error}
+              className="extract-button"
+              aria-busy={extracting}
+            >
+              {extracting ? 'Extracting...' : <><FiEye /> View Content</>}
             </button>
           </div>
-        ) : (
-          <label htmlFor="file-upload" className="file-label">
-            <FiFile />
-            Choose file
-          </label>
+          {showMessage && (
+            <div className={`upload-message ${error ? 'error' : 'success'}`} role="alert">
+              {error || message}
+            </div>
+          )}
+        {extractedContent && (
+          <div className="extracted-content">
+            <h3>Extracted Content from {extractedContent.filename}</h3>
+            <div className="content-info">
+              <p><strong>File type:</strong> {extractedContent.file_type}</p>
+              <p><strong>File size:</strong> {Math.round(extractedContent.file_size / 1024)} KB</p>
+              <p><strong>Content length:</strong> {extractedContent.content_length} characters</p>
+              <p><strong>Detected encoding:</strong> {extractedContent.encoding_info?.encoding || 'Unknown'} (confidence: {Math.round((extractedContent.encoding_info?.confidence || 0) * 100)}%)</p>
+            </div>
+            <div className="content-preview">
+              <h4>Content Preview:</h4>
+              <pre>{extractedContent.content_preview}</pre>
+            </div>
+          </div>
         )}
       </div>
-      
-      <button 
-        type="button"
-        onClick={handleUpload} 
-        disabled={!file || uploading || extracting || !authToken || !!error}
-        className="upload-button"
-        aria-busy={uploading}
-      >
-        {uploading ? 'Uploading...' : <><FiUpload /> Upload</>}
-      </button>
-      
-      <button 
-        type="button"
-        onClick={handleExtractContent} 
-        disabled={!file || uploading || extracting || !authToken || !!error}
-        className="extract-button"
-        aria-busy={extracting}
-      >
-        {extracting ? 'Extracting...' : <><FiEye /> View Content</>}
-      </button>
-      
-      {showMessage && (
-        <div className={`upload-message ${error ? 'error' : 'success'}`}>
-          {error || message}
-        </div>
-      )}
-      
-      {extractedContent && (
-        <div className="extracted-content">
-          <h3>Extracted Content from {extractedContent.filename}</h3>
-          <div className="content-info">
-            <p><strong>File type:</strong> {extractedContent.file_type}</p>
-            <p><strong>File size:</strong> {Math.round(extractedContent.file_size / 1024)} KB</p>
-            <p><strong>Content length:</strong> {extractedContent.content_length} characters</p>
-            <p><strong>Detected encoding:</strong> {extractedContent.encoding_info?.encoding || 'Unknown'} (confidence: {Math.round((extractedContent.encoding_info?.confidence || 0) * 100)}%)</p>
-          </div>
-          <div className="content-preview">
-            <h4>Content Preview:</h4>
-            <pre>{extractedContent.content_preview}</pre>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
 }
