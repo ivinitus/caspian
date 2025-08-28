@@ -361,12 +361,12 @@ class CaspianBot(discord.Client):
             Examples:
             Example 1:
             Input: "Remind me to call mom tomorrow at 5pm"
-            Output: {"remind_at": "2023-08-15 17:00:00", "content": "Call mom", "recurrence": "none", "recurrence_rule": null}
-            
+            Output: {{"remind_at": "2023-08-15 17:00:00", "content": "Call mom", "recurrence": "none", "recurrence_rule": null}}
+
             Example 2:
             Input: "Don't forget to take medicine every day at 9am"
-            Output: {"remind_at": "2023-08-14 09:00:00", "content": "Take medicine", "recurrence": "daily", "recurrence_rule": null}
-            
+            Output: {{"remind_at": "2023-08-14 09:00:00", "content": "Take medicine", "recurrence": "daily", "recurrence_rule": null}}
+
             Return only valid JSON that can be parsed by Python's json.loads().
             """
             

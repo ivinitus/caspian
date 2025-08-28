@@ -215,7 +215,12 @@ def parse_time(time_str, default_time=None, timezone=None):
         
         # Parse the time string
         dt = parser.parse(time_str)
-        
+        # Ensure both dt and default_time are timezone-aware for comparison
+        tz = ZoneInfo(timezone) if timezone else get_timezone_object()
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz)
+        if default_time.tzinfo is None:
+            default_time = default_time.replace(tzinfo=tz)
         # If parsed date is in the past but no specific date was mentioned,
         # use date disambiguation to determine the likely intended date
         if dt < default_time and not any(x in time_str_lower for x in 
