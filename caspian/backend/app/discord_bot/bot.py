@@ -33,11 +33,9 @@ class CaspianBot(discord.Client):
         if isinstance(message.channel, discord.DMChannel):
             if await handle_dm_automation(self, message):
                 return
-            is_reminder, confidence = await detect_reminder_intent(message.content)
             reply = None
-            if is_reminder and confidence >= 0.6:
-                reply = await handle_reminder_command(self, message)
-            elif message.content.startswith('!remind'):
+            # Only check for reminders if message starts with !remind
+            if message.content.strip().lower().startswith('!remind'):
                 reply = await handle_reminder_command(self, message)
             else:
                 reply = await process_and_get_reply(self, message)
