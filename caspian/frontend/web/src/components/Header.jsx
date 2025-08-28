@@ -17,7 +17,7 @@ export function Header() {
           <div className="header-buttons">
             <button className="header-button">
               <FiBook />
-              <span className="button-text">Knowledge</span>
+              <span className="button-text">SUMMARY</span>
             </button>
             <button className="header-button">
               <FiSettings />
