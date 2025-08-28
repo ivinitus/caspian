@@ -31,54 +31,12 @@ jobs:
       
       - name: Deploy to VM
         run: |
-          # Prepare deployment key
           echo "${{ secrets.VM_SSH_KEY }}" > ./deploy_key
           chmod 600 ./deploy_key
-          
-          # Display key info for debugging
-          echo "SSH key info:"
-          file ./deploy_key
-          cat -A ./deploy_key | head -1
-          
-          # Try to fix key format if needed
-          echo "Checking and fixing key format if necessary..."
-          if grep -q "OPENSSH PRIVATE KEY" ./deploy_key; then
-            echo "Key appears to be in OpenSSH format"
-          elif grep -q "BEGIN RSA PRIVATE KEY" ./deploy_key; then
-            echo "Key appears to be in PEM RSA format"
-          elif grep -q "BEGIN PRIVATE KEY" ./deploy_key; then
-            echo "Key appears to be in PKCS8 format"
-          else
-            echo "Key format not recognized. Attempting to convert..."
-            cp ./deploy_key ./deploy_key.bak
-            
-            # Remove any unexpected characters
-            tr -cd '\11\12\15\40-\176' < ./deploy_key.bak > ./deploy_key
-            chmod 600 ./deploy_key
-            
-            # If there's still an issue, try converting to PEM format
-            if ! ssh-keygen -y -f ./deploy_key &>/dev/null; then
-              echo "Attempting to convert key to PEM format..."
-              ssh-keygen -p -N "" -m PEM -f ./deploy_key
-            fi
-          fi
-          
-          # Extract and display the public key for verification
-          echo "Public key derived from the private key:"
-          ssh-keygen -y -f ./deploy_key || echo "Failed to extract public key - the key might be in an unsupported format or passphrase protected"
-          
-          # Use the VM's IP address from secrets
           VM_IP="${{ secrets.VM_IP_ADDRESS }}"
           echo "Deploying to VM at IP: ${VM_IP}"
           echo "Using username: ${{ secrets.VM_USER }}"
-          
-          # Test SSH connection before rsync
-          echo "Testing SSH connection..."
-          if ssh -v -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} "echo SSH connection successful"; then
-            echo "SSH connection established successfully. Proceeding with deployment."
-            
-            # Copy project files to VM
-            echo "Copying project files to VM..."
+          if ssh -i ./deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} "echo SSH connection successful"; then
             rsync -avz -e "ssh -i ./deploy_key -o StrictHostKeyChecking=no -o PubkeyAcceptedKeyTypes=+ssh-rsa" \
               --exclude=".git/" \
               --exclude="node_modules/" \
@@ -86,88 +44,44 @@ jobs:
               --exclude="*.pyc" \
               --exclude=".venv/" \
               . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
-          
-            
-            # Execute deployment script on VM
-            echo "Running deployment script on VM..."
             ssh -i ./deploy_key -o StrictHostKeyChecking=no -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} "cd ~/caspian && \
             echo 'DB_PASSWORD=${{ secrets.DB_PASSWORD }}' > .env && \
             echo 'SECRET_KEY=${{ secrets.SECRET_KEY }}' >> .env && \
             echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
             echo 'GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}' >> .env && \
             mkdir -p db-backups && \
-            
-            # Clean up only if disk space is low (more than 80% used)
             DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//') && \
             if [ \"\$DISK_USAGE\" -gt 80 ]; then \
-              echo 'Disk usage is high ('\$DISK_USAGE'%), cleaning up Docker system to free disk space...' && \
               docker system prune -af --volumes && \
               docker builder prune -af && \
               df -h; \
-            else \
-              echo 'Disk usage is acceptable ('\$DISK_USAGE'%), skipping cleanup'; \
             fi && \
-            
-            # Stop running containers
             docker-compose down && \
-            
-            # Smart rebuilding logic
             FULL_REBUILD='${{ github.event.inputs.full_rebuild || 'false' }}' && \
             if [ \"\$FULL_REBUILD\" = \"true\" ]; then \
-              echo \"Performing full rebuild as requested...\" && \
               docker-compose build --no-cache; \
             else \
-              echo \"Performing smart incremental build...\" && \
-              
-              # Try to pull latest images from registry (if they exist)
               docker-compose pull || true && \
-              
-              # Check which components have changed
               CHANGED=false && \
-              
               if [ -n \"\$(find ./caspian/backend -type f -newer .last_deploy 2>/dev/null)\" ]; then \
-                echo \"Backend changes detected, rebuilding backend...\" && \
                 docker-compose build backend && \
                 CHANGED=true; \
               fi && \
-              
               if [ -n \"\$(find ./caspian/frontend -type f -newer .last_deploy 2>/dev/null)\" ]; then \
-                echo \"Frontend changes detected, rebuilding frontend...\" && \
                 docker-compose build frontend && \
                 CHANGED=true; \
               fi && \
-              
               if [ \"\$CHANGED\" = \"false\" ]; then \
-                echo \"No significant changes detected, using cached images...\" && \
                 docker-compose build; \
               fi; \
             fi && \
-            
-            # Update last deploy timestamp
             touch .last_deploy && \
-            
-            # Start services
             docker-compose up -d && \
-            
-            echo 'Waiting for database to be ready...' && \
             sleep 30 && \
-            echo 'Creating database backup...' && \
             docker-compose exec -T postgres pg_dump -U caspian_user caspian_db > ./db-backups/backup_\$(date +%Y%m%d_%H%M%S).sql && \
-            echo 'Running database migrations...' && \
             docker-compose exec -T backend bash -c 'cd /app && python -m scripts.setup_db'"
           else
             echo "Failed to establish SSH connection to ${VM_IP}"
-            echo "Please ensure the following:"
-            echo "1. The SSH key provided in VM_SSH_KEY secret is correct"
-            echo "2. The public key derived from this private key is added to authorized_keys on the VM"
-            echo "3. The VM_USER secret contains the correct username for the VM"
-            echo "4. The VM_IP_ADDRESS secret contains the correct IP address"
-            
-            echo "Trying to get more information about the host..."
-            ping -c 3 ${VM_IP} || true
-            
             exit 1
           fi
-          
-          # Clean up
           rm ./deploy_key
