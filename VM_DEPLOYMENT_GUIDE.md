@@ -51,11 +51,21 @@ A VM-based deployment offers several key advantages for the Caspian application:
 
 2. **Install Docker**:
    ```bash
-   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-   sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-   sudo apt update
-   sudo apt install -y docker-ce
-   sudo usermod -aG docker ${USER}
+   # Add Docker's official GPG key using the new keyring method
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Set up the Docker repository
+echo \
+  "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Update package index and install Docker CE
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Add your user to the docker group for non-root access
+sudo usermod -aG docker $USER
+
    ```
 
 3. **Install Docker Compose**:
