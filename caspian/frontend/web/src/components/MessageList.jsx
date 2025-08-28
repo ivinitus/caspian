@@ -6,28 +6,24 @@ import { FiUser, FiCpu, FiCopy, FiCheck, FiAlertTriangle } from 'react-icons/fi'
 import './MessageList.css';
 
 export function MessageList({ messages, loading, messagesEndRef, error }) {
-  // Simple ref for the scroll container
   const containerRef = useRef(null);
   const loadingRef = useRef(null);
   const errorRef = useRef(null);
   const [copiedMsgIndex, setCopiedMsgIndex] = useState(null);
-  
-  // Auto-scroll when messages change or loading state changes
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, loading, messagesEndRef]);
-  
-  // Copy message content to clipboard
+
   const copyToClipboard = (text, index) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedMsgIndex(index);
       setTimeout(() => setCopiedMsgIndex(null), 2000);
     });
   };
-  
-  // Format timestamp
+
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
@@ -35,11 +31,13 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
   };
 
   return (
-    <div className="message-list" ref={containerRef}>
+    <div className="message-list" ref={containerRef} aria-live="polite">
       {messages.map((message, index) => (
-        <div 
+        <div
           key={index}
           className={`message ${message.role} message-animated`}
+          tabIndex={0}
+          aria-label={message.role === 'user' ? 'User message' : 'Assistant message'}
         >
           <div className="message-icon">
             {message.role === 'user' ? <FiUser /> : <FiCpu />}
@@ -48,7 +46,7 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
             <div className="message-content">
               <ReactMarkdown
                 components={{
-                  code({node, inline, className, children, ...props}) {
+                  code({ node, inline, className, children, ...props }) {
                     const match = /language-(\w+)/.exec(className || '');
                     return !inline && match ? (
                       <SyntaxHighlighter
@@ -63,8 +61,8 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
                       <code className={className} {...props}>
                         {children}
                       </code>
-                    )
-                  }
+                    );
+                  },
                 }}
               >
                 {message.content}
@@ -74,12 +72,11 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
               {message.timestamp && (
                 <span className="message-timestamp">{formatTime(message.timestamp)}</span>
               )}
-              
               {message.role === 'assistant' && (
-                <button 
-                  className="message-copy-btn" 
+                <button
+                  className="message-copy-btn"
                   onClick={() => copyToClipboard(message.content, index)}
-                  aria-label="Copy message"
+                  aria-label="Copy assistant message"
                 >
                   {copiedMsgIndex === index ? <FiCheck /> : <FiCopy />}
                 </button>
@@ -88,11 +85,12 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
           </div>
         </div>
       ))}
-      
+
       {loading && (
-        <div 
+        <div
           ref={loadingRef}
           className="message assistant typing message-animated"
+          aria-busy="true"
         >
           <div className="message-icon">
             <FiCpu />
@@ -104,11 +102,12 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
           </div>
         </div>
       )}
-      
+
       {error && (
-        <div 
+        <div
           ref={errorRef}
           className="message error message-animated"
+          role="alert"
         >
           <div className="message-icon error-icon">
             <FiAlertTriangle />
@@ -119,7 +118,7 @@ export function MessageList({ messages, loading, messagesEndRef, error }) {
           </div>
         </div>
       )}
-      
+
       <div ref={messagesEndRef} />
     </div>
   );
