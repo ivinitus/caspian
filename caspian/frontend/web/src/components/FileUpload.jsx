@@ -37,23 +37,27 @@ export function FileUpload() {
     if (file.size > MAX_FILE_SIZE) {
       return 'File is too large. Maximum size is 10MB.';
     }
-    
-  // ...existing code...
+    // Check file type
+    if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
+      return `File type ${file.type || 'unknown'} may not be supported.`;
+    }
+    return null;
+  }, []);
 
-      const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
-        if (!selectedFile) return;
-        const validationError = validateFile(selectedFile);
-        if (validationError) {
-          setError(validationError);
-          setShowMessage(true);
-          setTimeout(() => setShowMessage(false), 5000);
-          return;
-        }
-        setFile(selectedFile);
-        setMessage('');
-        setError('');
-      };
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (!selectedFile) return;
+    const validationError = validateFile(selectedFile);
+    if (validationError) {
+      setError(validationError);
+      setShowMessage(true);
+      setTimeout(() => setShowMessage(false), 5000);
+      return;
+    }
+    setFile(selectedFile);
+    setMessage('');
+    setError('');
+  };
 
       const clearFile = () => {
         setFile(null);
