@@ -26,6 +26,7 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, default=1)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, default="Vinitus")
+    hashed_password: Mapped[str] = mapped_column(String(128))
     preferences: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
