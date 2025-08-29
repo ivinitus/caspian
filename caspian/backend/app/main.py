@@ -77,7 +77,7 @@ async def startup_event():
             user = result.scalar_one_or_none()
             if not user:
                 hashed_pw = pwd_context.hash(settings.default_user_password)
-                db.add(User(username=settings.default_username))
+                db.add(User(username=settings.default_username, hashed_password=hashed_pw))
                 await db.commit()
 
 
