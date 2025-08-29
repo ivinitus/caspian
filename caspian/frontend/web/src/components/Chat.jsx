@@ -1,4 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
+import { FiUser } from 'react-icons/fi';
+// You can replace this SVG with a more detailed butler/Jenkins icon if desired
+const ButlerIcon = () => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: 8 }}>
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="16" cy="16" r="16" fill="#F5F5F5" stroke="#222" strokeWidth="2"/>
+      <ellipse cx="16" cy="13" rx="6" ry="7" fill="#fff" stroke="#222" strokeWidth="1.5"/>
+      <ellipse cx="16" cy="13" rx="3.5" ry="4" fill="#e0e0e0"/>
+      <ellipse cx="16" cy="13" rx="2.5" ry="3" fill="#fff"/>
+      <ellipse cx="16" cy="13" rx="1.2" ry="1.5" fill="#222"/>
+      <rect x="13" y="20" width="6" height="2.5" rx="1.2" fill="#222"/>
+      <ellipse cx="16" cy="24.5" rx="2.5" ry="1.2" fill="#222"/>
+    </svg>
+  </span>
+);
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { MessageList } from './MessageList';
@@ -7,11 +22,20 @@ import './Chat.css';
 
 export function Chat() {
   const { authToken, conversationId, username } = useAuth();
+  // Dynamic greeting based on time of day
+  function getButlerGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning, Sir. How may I assist you today?';
+    if (hour < 18) return 'Good afternoon, Sir. How may I assist you today?';
+    return 'Good evening, Sir. How may I assist you today?';
+  }
+
   const [messages, setMessages] = useState([
-    { 
-      role: 'assistant', 
-      content: 'Hello Sir..',
-      timestamp: new Date().toISOString()
+    {
+      role: 'assistant',
+      content: getButlerGreeting(),
+      timestamp: new Date().toISOString(),
+      isGreeting: true,
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -182,28 +206,24 @@ export function Chat() {
           </div>
         </div>
       )}
-      
+
+
+
       <MessageList 
         messages={messages} 
         loading={loading} 
         messagesEndRef={messagesEndRef}
         error={error}
       />
-      
+
       <div className="chat-input-area">
         <MessageInput 
           onSendMessage={handleSendMessage} 
           disabled={loading || !conversationId || !authToken || !!error}
           isLoading={loading}
         />
-        
-        {/* Loading indicator - shows when processing a message */}
-        {loading && (
-          <div className="chat-loading-indicator">
-            <div className="loading-spinner"></div>
-            <span>Processing message...</span>
-          </div>
-        )}
+
+  {/* Loading indicator removed as per user request */}
       </div>
     </div>
   );
