@@ -16,7 +16,7 @@ on:
       full_rebuild:
         description: 'Force full rebuild of all containers'
         type: boolean
-        default: false
+        default: true
 
 jobs:
   deploy:
