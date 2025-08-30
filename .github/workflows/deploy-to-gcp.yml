@@ -46,6 +46,7 @@ jobs:
               . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
             ssh -i ./deploy_key -o StrictHostKeyChecking=no -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} "cd ~/caspian && \
             echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' > .env && \
+            echo 'DB_PASSWORD=${{ secrets.DB_PASSWORD }}' >> .env && \
             echo 'SECRET_KEY=${{ secrets.SECRET_KEY }}' >> .env && \
             echo 'GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}' >> .env && \
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env && \
