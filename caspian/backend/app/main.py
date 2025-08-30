@@ -69,6 +69,8 @@ async def startup_event():
         print(f"Warning: Failed to start reminder checking task: {e}")
 
     if settings.create_default_user_on_startup:
+        if not settings.default_user_password:
+            raise RuntimeError("DEFAULT_USER_PASSWORD is not set or is empty. Please set it in your environment or .env file.")
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         async with SessionLocal() as db:
             result = await db.execute(
