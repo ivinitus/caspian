@@ -57,8 +57,8 @@ jobs:
             echo 'CREATE_DEFAULT_USER_ON_STARTUP=${{ vars.CREATE_DEFAULT_USER_ON_STARTUP }}' >> .env && \
             echo 'SQLALCHEMY_ECHO=${{ vars.SQLALCHEMY_ECHO }}' >> .env && \
             echo 'ALGORITHM=${{ vars.ALGORITHM }}' >> .env && \
-            echo 'ACCESS_TOKEN_EXPIRE_MINUTES=${{ vars.ACCESS_TOKEN_EXPIRE_MINUTES }}' >> .env && \
-            echo 'CORS_ORIGINS=${{ vars.CORS_ORIGINS }}' >> .env && \
+            echo "ACCESS_TOKEN_EXPIRE_MINUTES=\${ACCESS_TOKEN_EXPIRE_MINUTES:-60}" >> .env && \
+            echo "CORS_ORIGINS=\${CORS_ORIGINS:-[\"*\"]}" >> .env && \
             mkdir -p db-backups && \
             DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//') && \
             if [ \"\$DISK_USAGE\" -gt 80 ]; then \
