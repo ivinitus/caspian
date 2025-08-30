@@ -45,10 +45,19 @@ jobs:
               --exclude=".venv/" \
               . ${{ secrets.VM_USER }}@${VM_IP}:~/caspian/
             ssh -i ./deploy_key -o StrictHostKeyChecking=no -o PubkeyAcceptedKeyTypes=+ssh-rsa ${{ secrets.VM_USER }}@${VM_IP} "cd ~/caspian && \
-            echo 'DB_PASSWORD=${{ secrets.DB_PASSWORD }}' > .env && \
+            echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' > .env && \
             echo 'SECRET_KEY=${{ secrets.SECRET_KEY }}' >> .env && \
-            echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
             echo 'GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}' >> .env && \
+            echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env && \
+            echo 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}' >> .env && \
+            echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
+            echo 'DEFAULT_USER_PASSWORD=${{ secrets.DEFAULT_USER_PASSWORD }}' >> .env && \
+            echo 'DEFAULT_USERNAME=${{ vars.DEFAULT_USERNAME }}' >> .env && \
+            echo 'CREATE_DEFAULT_USER_ON_STARTUP=${{ vars.CREATE_DEFAULT_USER_ON_STARTUP }}' >> .env && \
+            echo 'SQLALCHEMY_ECHO=${{ vars.SQLALCHEMY_ECHO }}' >> .env && \
+            echo 'ALGORITHM=${{ vars.ALGORITHM }}' >> .env && \
+            echo 'ACCESS_TOKEN_EXPIRE_MINUTES=${{ vars.ACCESS_TOKEN_EXPIRE_MINUTES }}' >> .env && \
+            echo 'CORS_ORIGINS=${{ vars.CORS_ORIGINS }}' >> .env && \
             mkdir -p db-backups && \
             DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//') && \
             if [ \"\$DISK_USAGE\" -gt 80 ]; then \
