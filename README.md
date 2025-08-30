@@ -128,14 +128,10 @@ All required variables are documented in `caspian/backend/.env.example`. Key var
 docker-compose up --build -d
 ```
 
+
 ### GCP/VM Deployment
 
-See [`VM_DEPLOYMENT_GUIDE.md`](VM_DEPLOYMENT_GUIDE.md) for:
-
-- VM provisioning and setup
-- Backups and restores
-- Security best practices
-- Troubleshooting
+For GCP/VM deployment instructions, see the deployment section in this README or consult your team documentation.
 
 ### GitHub Actions CI/CD
 
@@ -167,9 +163,10 @@ See the `LICENSE` file for details.
 
 ---
 
+
 ## Contact & Support
 
 - For issues, open a GitHub issue or discussion
-- For deployment help, see `VM_DEPLOYMENT_GUIDE.md`
+- For deployment help, refer to the deployment section above or ask in the repository discussions.
 
 ---
