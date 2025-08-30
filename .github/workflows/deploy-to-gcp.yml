@@ -107,5 +107,19 @@ jobs:
           fi
           curl -H "Content-Type: application/json" \
             -X POST \
-            -d '{"content": "Deployment to GCP was successful!"}' \
+            -d '{"content": " Deployment to GCP was successful!"}' \
+            "$DISCORD_WEBHOOK_URL"
+
+      - name: Notify Discord on Failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL is not set. Skipping Discord notification.";
+            exit 0;
+          fi
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{"content": " Deployment to GCP failed!"}' \
             "$DISCORD_WEBHOOK_URL"
