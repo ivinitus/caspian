@@ -36,13 +36,12 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
+
     # Application
     app_name: str = "Caspian AI Assistant"
 
     # Database
-    database_url: str = (
-        "postgresql+asyncpg://caspian_user:password@localhost:5433/caspian_db"
-    )
+    database_url: str | None = None
     sqlalchemy_echo: bool = False
 
     # LLM Provider selection: 'gemini' | 'openai' | 'anthropic'
@@ -56,11 +55,11 @@ class Settings(BaseSettings):
 
     # Default personal user
     default_username: str = "sir"
-    default_user_password: str = "Vinitus@123"
+    default_user_password: str | None = None
     create_default_user_on_startup: bool = True
 
     # Security / Auth
-    secret_key: str = "Vinitus@123"
+    secret_key: str | None = None
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
