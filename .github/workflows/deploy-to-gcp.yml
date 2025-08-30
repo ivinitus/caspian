@@ -58,7 +58,6 @@ jobs:
             echo 'SQLALCHEMY_ECHO=${{ vars.SQLALCHEMY_ECHO }}' >> .env && \
             echo 'ALGORITHM=${{ vars.ALGORITHM }}' >> .env && \
             echo "ACCESS_TOKEN_EXPIRE_MINUTES=\${ACCESS_TOKEN_EXPIRE_MINUTES:-60}" >> .env && \
-            echo 'CORS_ORIGINS=["*"]' >> .env && \
             mkdir -p db-backups && \
             DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//') && \
             if [ \"\$DISK_USAGE\" -gt 80 ]; then \
