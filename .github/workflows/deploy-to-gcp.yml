@@ -95,3 +95,17 @@ jobs:
             exit 1
           fi
           rm ./deploy_key
+
+      - name: Notify Discord on Success
+        if: success()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL is not set. Skipping Discord notification.";
+            exit 0;
+          fi
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{"content": "Deployment to GCP was successful!"}' \
+            "$DISCORD_WEBHOOK_URL"
