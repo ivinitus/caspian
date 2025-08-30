@@ -2,7 +2,7 @@ name: Deploy to VM
 
 on:
   push:
-    branches: [ main, gama ]
+    branches: [ deploy ]
   workflow_dispatch:
     inputs:
       deployment_type:
