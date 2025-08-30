@@ -1,2 +1,7 @@
+caspian/frontend/web/pgvector/** linguist-vendored
+caspian/frontend/web/src/components/pgvector/** linguist-vendored
 caspian/frontend/web/pgvector/* linguist-vendored
 caspian/frontend/web/src/components/pgvector/* linguist-vendored
+pgvector/** linguist-vendored
+third_party/** linguist-vendored
+vendor/** linguist-vendored
