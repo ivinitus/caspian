@@ -1,113 +1,116 @@
-# Deploying Caspian on Your Own VM Instance
 
-This is the official deployment guide for the Caspian AI Assistant platform using a VM instance on Google Cloud Platform (or any other cloud provider).
+# Caspian VM Deployment Guide
 
-## Why Use a VM Instead of Other Deployment Methods?
+This is the official guide for deploying the **Caspian AI Assistant** platform on your own VM instance (Google Cloud Platform or any other provider).
 
-A VM-based deployment offers several key advantages for the Caspian application:
+---
 
-1. **Consistent Performance**: No cold starts that can affect AI/ML workloads
-2. **Cost Control**: Predictable pricing for consistent workloads
-3. **Full Control**: Complete customization of your environment
-4. **Simplified Architecture**: All components running together
-5. **Better for AI Processing**: Dedicated resources for vector embeddings and AI operations
 
-## Step 1: Create and Configure VM Instance
+## Why Deploy Caspian on a VM?
 
-1. **Create a VM in Google Cloud**:
-   ```bash
-   gcloud compute instances create caspian-server \
-     --zone=us-central1-a \
-     --machine-type=e2-standard-4 \
-     --boot-disk-size=50GB \
-     --image-family=ubuntu-2004-lts \
-     --image-project=ubuntu-os-cloud \
-     --tags=http-server,https-server
-   ```
+VM-based deployment offers:
+- **Consistent performance** for AI/ML workloads (no cold starts)
+- **Predictable costs** for steady workloads
+- **Full control** over your environment and security
+- **All-in-one architecture** (backend, frontend, database, vector search)
+- **Best for AI processing** (dedicated resources for LLMs, vector embeddings)
 
-2. **Open firewall ports**:
-   ```bash
-   gcloud compute firewall-rules create allow-http \
-     --allow tcp:80 \
-     --target-tags http-server
-   
-   gcloud compute firewall-rules create allow-https \
-     --allow tcp:443 \
-     --target-tags https-server
-   ```
+## 1. Create and Configure Your VM
 
-3. **SSH into your VM**:
-   ```bash
-   gcloud compute ssh caspian-server --zone=us-central1-a
-   ```
+1. **Create a VM (example: Google Cloud):**
+    ```bash
+    gcloud compute instances create caspian-server \
+       --zone=us-central1-a \
+       --machine-type=e2-standard-4 \
+       --boot-disk-size=50GB \
+       --image-family=ubuntu-2004-lts \
+       --image-project=ubuntu-os-cloud \
+       --tags=http-server,https-server
+    ```
 
-## Step 2: Install Docker and Docker Compose
+2. **Open firewall ports:**
+    ```bash
+    gcloud compute firewall-rules create allow-http \
+       --allow tcp:80 \
+       --target-tags http-server
+    gcloud compute firewall-rules create allow-https \
+       --allow tcp:443 \
+       --target-tags https-server
+    ```
 
-1. **Update packages and install dependencies**:
+3. **SSH into your VM:**
+    ```bash
+    gcloud compute ssh caspian-server --zone=us-central1-a
+    ```
+
+## 2. Install Docker & Docker Compose
+
+1. **Update packages and install dependencies:**
    ```bash
    sudo apt update
    sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
    ```
 
-2. **Install Docker**:
+2. **Install Docker:**
    ```bash
-   # Add Docker's official GPG key using the new keyring method
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+   # Add Docker's official GPG key
+   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-# Set up the Docker repository
-echo \
-  "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+   # Set up the Docker repository
+   echo \
+     "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+     $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# Update package index and install Docker CE
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+   # Install Docker
+   sudo apt update
+   sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Add your user to the docker group for non-root access
-sudo usermod -aG docker $USER
-
+   # Add your user to the docker group
+   sudo usermod -aG docker $USER
    ```
 
-3. **Install Docker Compose**:
+3. **Install Docker Compose (if not included):**
    ```bash
    sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
    sudo chmod +x /usr/local/bin/docker-compose
    ```
 
-4. **Log out and log back in for group changes to take effect**:
+4. **Log out and back in for group changes:**
    ```bash
    exit
    gcloud compute ssh caspian-server --zone=us-central1-a
    ```
 
-## Step 3: Set Up Your Project
+## 3. Set Up Caspian Project
 
-1. **Clone your repository**:
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/ivinitus/caspian.git
    cd caspian
    ```
 
-2. **Create needed directories**:
+2. **Create needed directories:**
    ```bash
    mkdir -p ssl nginx-logs db-backups
    ```
 
-3. **Create a .env file for secrets**:
-   ```bash
-   touch .env
-   nano .env
-   ```
+3. **Configure environment variables:**
+   - Copy `.env.example` to `.env` in `caspian/backend/`:
+     ```bash
+     cp caspian/backend/.env.example caspian/backend/.env
+     nano caspian/backend/.env
+     ```
+   - Fill in all required values. Key variables include:
+     - `DATABASE_URL` (PostgreSQL connection string)
+     - `DISCORD_TOKEN` (Discord bot token)
+     - `SECRET_KEY` (App secret key)
+     - `CORS_ORIGINS` (allowed origins)
+     - `OPENAI_API_KEY` (if using OpenAI)
+     - `DEFAULT_USER_EMAIL`, `DEFAULT_USER_PASSWORD` (admin user)
+   - See `caspian/backend/.env.example` for all options.
 
-   Add the following content (replace with your actual values):
-   ```
-   DB_PASSWORD=your_secure_password
-   SECRET_KEY=your_secure_key
-   DISCORD_TOKEN=your_discord_token
-   GEMINI_API_KEY=your_gemini_api_key
-   ```
 
-## Step 4: Configure SSL/TLS with Certbot
+## 4. Configure SSL/TLS with Certbot
 
 1. **Install Certbot**:
    ```bash
@@ -136,24 +139,25 @@ sudo usermod -aG docker $USER
    0 3 * * * certbot renew --quiet && cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem /home/$(whoami)/caspian/ssl/ && cp /etc/letsencrypt/live/yourdomain.com/privkey.pem /home/$(whoami)/caspian/ssl/ && docker-compose restart frontend
    ```
 
-## Step 5: Deploy the Application
+## 5. Deploy Caspian
 
-1. **Start the containers**:
+1. **Start all services with Docker Compose:**
    ```bash
-   docker-compose up -d
+   docker-compose up --build -d
    ```
 
-2. **Check container status**:
+2. **Check container status:**
    ```bash
    docker-compose ps
    ```
 
-3. **Initialize database (first time only)**:
+3. **(Optional) Run database setup script:**
    ```bash
-   docker-compose exec backend python -m app.scripts.setup_db
+   docker-compose exec backend python scripts/setup_db.py
    ```
 
-## Step 6: Monitoring and Maintenance
+
+## 6. Monitoring and Maintenance
 
 1. **View logs**:
    ```bash
@@ -174,7 +178,8 @@ sudo usermod -aG docker $USER
    - Default login: admin/admin
    - Configure dashboards to monitor your system
 
-## Step 7: CI/CD with GitHub Actions
+
+## 7. CI/CD with GitHub Actions
 
 1. **Generate SSH key for deployment**:
    ```bash
@@ -204,6 +209,9 @@ sudo usermod -aG docker $USER
    git commit -m "Update application"
    git push
    ```
+
+
+---
 
 ## Performance Tuning
 
@@ -237,6 +245,9 @@ sudo usermod -aG docker $USER
    - Update the `nginx.conf` with worker optimizations
    - Enable compression and caching
 
+
+---
+
 ## Troubleshooting
 
 1. **Container won't start**:
@@ -254,6 +265,9 @@ sudo usermod -aG docker $USER
    docker-compose down
    docker-compose up -d --force-recreate --build
    ```
+
+
+---
 
 ## Backup and Restore
 
@@ -278,12 +292,24 @@ sudo usermod -aG docker $USER
    docker-compose up -d
    ```
 
+
+---
+
 ## Security Best Practices
 
 1. **Keep system updated**:
    ```bash
    sudo apt update && sudo apt upgrade -y
    ```
+
+   ---
+
+   ## Contact & Support
+
+   - For issues, open a GitHub issue or discussion: https://github.com/ivinitus/caspian
+   - For deployment help, see this guide and the main `README.md`.
+
+   ---
 
 2. **Set up UFW firewall**:
    ```bash
