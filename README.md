@@ -71,7 +71,7 @@ caspian/
 ### 1. Clone the repository
 
 ```bash
-git clone https://
+git clone https://github.com/ivinitus/caspian
 cd caspian
 ```
 
@@ -98,10 +98,9 @@ docker-compose up --build
 ### 5. (Optional) Run database setup scripts
 
 ```bash
-# Example: (if using setup_db.py or Alembic)
+# if using setup_db.py or Alembic)
 docker-compose exec backend python scripts/setup_db.py
-# or
-# alembic upgrade head
+
 ```
 
 ---
