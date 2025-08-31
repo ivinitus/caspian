@@ -29,8 +29,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Ignore VM deployment guide
-VM_DEPLOYMENT_GUIDE.md
 
 # JavaScript/Node
 node_modules/
