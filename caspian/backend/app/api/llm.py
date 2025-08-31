@@ -95,8 +95,7 @@ async def chat_with_llm(req: LLMRequest):
             # Get LLM reply
             text = await ask_llm(messages, model=req.model)
             reply = text.strip()
-            if not reply.lower().startswith("sir"):
-                reply = f"Sir, {reply}"
+            # Remove forced 'Sir' prefix; let personality and prompt handle address naturally
 
             # Persist user message and assistant reply
             new_user_msg = Message(
