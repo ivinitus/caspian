@@ -90,7 +90,7 @@ export function Chat() {
       setLoading(true);
       setError(null);
       
-      // Wrap API calls in a separate async function to avoid issues with async/await
+      // Wrap API calls in a separate async function to avoid issues with async/await.
       const sendMessageToAPI = async () => {
         try {
           // Save user message to conversation
