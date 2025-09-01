@@ -88,7 +88,9 @@ jobs:
             docker-compose up -d && \
             sleep 30 && \
             docker-compose exec -T postgres pg_dump -U caspian_user caspian_db > ./db-backups/backup_\$(date +%Y%m%d_%H%M%S).sql && \
-            docker-compose exec -T backend bash -c 'cd /app && python -m scripts.setup_db'"
+            docker-compose exec -T backend bash -c 'cd /app && python -m scripts.setup_db' && \
+            docker-compose restart backend && \
+            sleep 10"
           else
             echo "Failed to establish SSH connection to ${VM_IP}"
             exit 1
