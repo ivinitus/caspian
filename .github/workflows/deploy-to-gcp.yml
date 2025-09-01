@@ -53,11 +53,11 @@ jobs:
             echo 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}' >> .env && \
             echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
             echo 'DEFAULT_USER_PASSWORD=${{ secrets.DEFAULT_USER_PASSWORD }}' >> .env && \
-            echo 'DEFAULT_USERNAME=${{ vars.DEFAULT_USERNAME }}' >> .env && \
-            echo 'CREATE_DEFAULT_USER_ON_STARTUP=${{ vars.CREATE_DEFAULT_USER_ON_STARTUP }}' >> .env && \
-            echo 'SQLALCHEMY_ECHO=${{ vars.SQLALCHEMY_ECHO }}' >> .env && \
-            echo 'ALGORITHM=${{ vars.ALGORITHM }}' >> .env && \
-            echo "ACCESS_TOKEN_EXPIRE_MINUTES=\${ACCESS_TOKEN_EXPIRE_MINUTES:-60}" >> .env && \
+            echo 'DEFAULT_USERNAME=sir' >> .env && \
+            echo 'CREATE_DEFAULT_USER_ON_STARTUP=true' >> .env && \
+            echo 'SQLALCHEMY_ECHO=false' >> .env && \
+            echo 'ALGORITHM=HS256' >> .env && \
+            echo 'ACCESS_TOKEN_EXPIRE_MINUTES=1440' >> .env && \
             mkdir -p db-backups && \
             DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//') && \
             if [ \"\$DISK_USAGE\" -gt 80 ]; then \
