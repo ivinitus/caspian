@@ -2,7 +2,7 @@ name: Deploy to VM
 
 on:
   push:
-    branches: [ deploy ]
+    branches: [ fix1_withoutauth ]
   workflow_dispatch:
     inputs:
       deployment_type:
