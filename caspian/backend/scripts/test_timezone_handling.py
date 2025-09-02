@@ -30,7 +30,7 @@ async def test_timezone_handling():
             # Find user ID 1 or create it
             user = await db.get(User, 1)
             if not user:
-                user = User(id=1, username="TestUser", preferences={})
+                user = User(id=1, username="testuser", preferences={})
                 db.add(user)
                 await db.commit()
                 await db.refresh(user)

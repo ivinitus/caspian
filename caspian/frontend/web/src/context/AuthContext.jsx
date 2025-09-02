@@ -11,8 +11,8 @@ const TOKEN_TIMESTAMP_KEY = 'caspian_token_timestamp';
 // Token expiration time (24 hours)
 const TOKEN_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 
-// Fixed username for sole user
-const FIXED_USERNAME = 'sir';
+// Fixed username for sole user 
+const FIXED_USERNAME = 'Vinitus';
 
 export function AuthProvider({ children }) {
   const [authToken, setAuthToken] = useState(() => {
