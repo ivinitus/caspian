@@ -2,7 +2,7 @@ name: Deploy to VM
 
 on:
   push:
-    branches: [ fix1_withoutauth ]
+    branches: [ fix2 ]
   workflow_dispatch:
     inputs:
       deployment_type:
@@ -53,7 +53,7 @@ jobs:
             echo 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}' >> .env && \
             echo 'DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}' >> .env && \
             echo 'DEFAULT_USER_PASSWORD=${{ secrets.DEFAULT_USER_PASSWORD }}' >> .env && \
-            echo 'DEFAULT_USERNAME=sir' >> .env && \
+            echo 'DEFAULT_USERNAME=vinitus' >> .env && \
             echo 'CREATE_DEFAULT_USER_ON_STARTUP=true' >> .env && \
             echo 'SQLALCHEMY_ECHO=false' >> .env && \
             echo 'ALGORITHM=HS256' >> .env && \
