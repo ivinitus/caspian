@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     discord_token: str | None = None
 
     # Default personal user
-    default_username: str = "sir"
+    default_username: str = "Vinitus"
     default_user_password: str | None = None
     create_default_user_on_startup: bool = True
 
