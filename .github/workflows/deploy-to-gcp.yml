@@ -2,7 +2,7 @@ name: Deploy to VM
 
 on:
   push:
-    branches: [ fix2 ]
+    branches: [ fx2 ]
   workflow_dispatch:
     inputs:
       deployment_type:
